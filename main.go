@@ -22,7 +22,7 @@ const (
 	backupDirName      = "backups"
 	backupTSFormat     = "2006-01-02:15-04-05"
 	maxBackupsToKeep   = 50
-	defaultListName    = "À classer"
+	defaultListName    = "Inbox"
 	cliVersion         = "0.3.0"
 )
 
@@ -53,18 +53,18 @@ func newRootCmd() *cobra.Command {
 		Use:           "agent-things",
 		SilenceErrors: false,
 		SilenceUsage:  true,
-		Short:         "CLI Things via AppleScript (aucun accès direct à la base)",
-		Long: `Ce CLI pilote Things via AppleScript uniquement.
-Il crée une sauvegarde timestampée au format YYYY-MM-DD:hh-mm-ss avant chaque action
-qui modifie des données.`,
+		Short:         "Things CLI via AppleScript (no direct DB access)",
+		Long: `This CLI controls Things through AppleScript only.
+It creates a timestamped backup in YYYY-MM-DD:hh-mm-ss format
+before each write action.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
 	}
 
-	root.PersistentFlags().StringVar(&config.bundleID, "bundle-id", envOrDefault("THINGS_BUNDLE_ID", defaultBundleID), "Bundle id de l'application Things")
-	root.PersistentFlags().StringVar(&config.dataDir, "data-dir", envOrDefault("THINGS_DATA_DIR", ""), "Chemin de la base Things")
-	root.PersistentFlags().StringVar(&config.authToken, "auth-token", envOrDefault("THINGS_AUTH_TOKEN", ""), "Jeton URL Scheme Things (Réglages > Général)")
+	root.PersistentFlags().StringVar(&config.bundleID, "bundle-id", envOrDefault("THINGS_BUNDLE_ID", defaultBundleID), "Things app bundle id")
+	root.PersistentFlags().StringVar(&config.dataDir, "data-dir", envOrDefault("THINGS_DATA_DIR", ""), "Things database path")
+	root.PersistentFlags().StringVar(&config.authToken, "auth-token", envOrDefault("THINGS_AUTH_TOKEN", ""), "Things URL Scheme auth token (Settings > General)")
 
 	root.AddCommand(
 		newBackupCmd(),
@@ -102,7 +102,7 @@ qui modifie des données.`,
 		newUncompleteSubtaskCmd(),
 		&cobra.Command{
 			Use:   "version",
-			Short: "Afficher la version",
+			Short: "Show version",
 			Run: func(cmd *cobra.Command, args []string) {
 				fmt.Println("things", cliVersion)
 			},
@@ -218,7 +218,7 @@ func normalizeChecklistInput(raw string) string {
 func newBackupCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "backup",
-		Short: "Créer une sauvegarde de la base Things",
+		Short: "Create a Things DB backup",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -241,7 +241,7 @@ func newRestoreCmd() *cobra.Command {
 	var target string
 	cmd := &cobra.Command{
 		Use:   "restore",
-		Short: "Restaurer un backup (dernier par défaut)",
+		Short: "Restore a backup (latest by default)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -330,7 +330,7 @@ func newListsCmd() *cobra.Command {
 func newProjectsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "projects",
-		Short: "Lister les projets",
+		Short: "List projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -346,7 +346,7 @@ func newTasksCmd() *cobra.Command {
 	var listName, query string
 	cmd := &cobra.Command{
 		Use:   "tasks",
-		Short: "Lister les tâches (optionnellement filtrées)",
+		Short: "List tasks (optionally filtered)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -357,7 +357,7 @@ func newTasksCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&listName, "list", "", "Domaine")
-	cmd.Flags().StringVar(&query, "query", "", "Filtre nom / notes")
+	cmd.Flags().StringVar(&query, "query", "", "Filter by name / notes")
 	return cmd
 }
 
@@ -365,7 +365,7 @@ func newSearchCmd() *cobra.Command {
 	var listName, query string
 	cmd := &cobra.Command{
 		Use:   "search",
-		Short: "Rechercher tâches",
+		Short: "Search tasks",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -373,13 +373,13 @@ func newSearchCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(query) == "" {
-				return errors.New("--query est requis")
+				return errors.New("--query is required")
 			}
 			return runResult(ctx, cfg, scriptSearch(cfg.bundleID, listName, query))
 		},
 	}
-	cmd.Flags().StringVar(&query, "query", "", "Texte recherché")
-	cmd.Flags().StringVar(&listName, "list", "", "Limiter au domaine")
+	cmd.Flags().StringVar(&query, "query", "", "Search text")
+	cmd.Flags().StringVar(&listName, "list", "", "Limit to area")
 	_ = cmd.MarkFlagRequired("query")
 	return cmd
 }
@@ -387,7 +387,7 @@ func newSearchCmd() *cobra.Command {
 func newURLCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "url",
-		Short: "Commandes Things URL Scheme (API officielle)",
+		Short: "Things URL Scheme commands (official API)",
 	}
 	cmd.AddCommand(
 		newURLAddCmd(),
@@ -437,20 +437,20 @@ func newURLAddCmd() *cobra.Command {
 			return runThingsURL(ctx, cfg, "add", params)
 		},
 	}
-	cmd.Flags().StringVar(&title, "title", "", "Titre")
+	cmd.Flags().StringVar(&title, "title", "", "Title")
 	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
-	cmd.Flags().StringVar(&when, "when", "", "Date/quand (today, tomorrow, evening, someday, etc.)")
+	cmd.Flags().StringVar(&when, "when", "", "When field (today, tomorrow, evening, someday, etc.)")
 	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
-	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgule")
+	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tags")
 	cmd.Flags().StringVar(&checklistItems, "checklist-items", "", "Checklist (lignes ou CSV)")
-	cmd.Flags().StringVar(&listName, "list", "", "Nom du projet/area destination")
-	cmd.Flags().StringVar(&listID, "list-id", "", "ID du projet/area destination")
-	cmd.Flags().StringVar(&heading, "heading", "", "Nom du heading destination")
+	cmd.Flags().StringVar(&listName, "list", "", "Destination project/area name")
+	cmd.Flags().StringVar(&listID, "list-id", "", "Destination project/area ID")
+	cmd.Flags().StringVar(&heading, "heading", "", "Destination heading name")
 	cmd.Flags().StringVar(&headingID, "heading-id", "", "ID du heading destination")
 	cmd.Flags().StringVar(&notesTemplate, "notes-template", "", "replace-title|replace-notes|replace-checklist-items")
-	cmd.Flags().BoolVar(&completed, "completed", false, "Créer comme complétée")
-	cmd.Flags().BoolVar(&canceled, "canceled", false, "Créer comme annulée")
-	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler après création")
+	cmd.Flags().BoolVar(&completed, "completed", false, "Create as completed")
+	cmd.Flags().BoolVar(&canceled, "canceled", false, "Create as canceled")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal after creation")
 	return cmd
 }
 
@@ -471,7 +471,7 @@ func newURLUpdateCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(id) == "" {
-				return errors.New("--id est requis")
+				return errors.New("--id is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -508,28 +508,28 @@ func newURLUpdateCmd() *cobra.Command {
 			return runThingsURL(ctx, cfg, "update", params)
 		},
 	}
-	cmd.Flags().StringVar(&id, "id", "", "ID du to-do à modifier")
-	cmd.Flags().StringVar(&title, "title", "", "Nouveau titre")
-	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes (vide pour effacer)")
-	cmd.Flags().StringVar(&prependNotes, "prepend-notes", "", "Préfixer les notes")
-	cmd.Flags().StringVar(&appendNotes, "append-notes", "", "Suffixer les notes")
-	cmd.Flags().StringVar(&when, "when", "", "Quand")
+	cmd.Flags().StringVar(&id, "id", "", "ID of the to-do to update")
+	cmd.Flags().StringVar(&title, "title", "", "New title")
+	cmd.Flags().StringVar(&notes, "notes", "", "New notes (empty to clear)")
+	cmd.Flags().StringVar(&prependNotes, "prepend-notes", "", "Prepend notes")
+	cmd.Flags().StringVar(&appendNotes, "append-notes", "", "Append notes")
+	cmd.Flags().StringVar(&when, "when", "", "When")
 	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
-	cmd.Flags().StringVar(&tags, "tags", "", "Remplacer les tags")
-	cmd.Flags().StringVar(&addTags, "add-tags", "", "Ajouter des tags")
-	cmd.Flags().StringVar(&checklistItems, "checklist-items", "", "Remplacer checklist (lignes ou CSV)")
-	cmd.Flags().StringVar(&prependChecklist, "prepend-checklist-items", "", "Préfixer checklist")
-	cmd.Flags().StringVar(&appendChecklist, "append-checklist-items", "", "Suffixer checklist")
-	cmd.Flags().StringVar(&listName, "list", "", "Projet/area destination")
-	cmd.Flags().StringVar(&listID, "list-id", "", "ID projet/area destination")
+	cmd.Flags().StringVar(&tags, "tags", "", "Replace tags")
+	cmd.Flags().StringVar(&addTags, "add-tags", "", "Add tags")
+	cmd.Flags().StringVar(&checklistItems, "checklist-items", "", "Replace checklist (lines or CSV)")
+	cmd.Flags().StringVar(&prependChecklist, "prepend-checklist-items", "", "Prepend checklist")
+	cmd.Flags().StringVar(&appendChecklist, "append-checklist-items", "", "Append checklist")
+	cmd.Flags().StringVar(&listName, "list", "", "Destination project/area")
+	cmd.Flags().StringVar(&listID, "list-id", "", "Destination project/area ID")
 	cmd.Flags().StringVar(&heading, "heading", "", "Heading destination")
 	cmd.Flags().StringVar(&headingID, "heading-id", "", "ID heading destination")
-	cmd.Flags().BoolVar(&completed, "completed", false, "Définir statut completed")
-	cmd.Flags().BoolVar(&canceled, "canceled", false, "Définir statut canceled")
-	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler l'item")
-	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Dupliquer avant update")
-	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Date création ISO8601")
-	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Date completion ISO8601")
+	cmd.Flags().BoolVar(&completed, "completed", false, "Set completed status")
+	cmd.Flags().BoolVar(&canceled, "canceled", false, "Set canceled status")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal item")
+	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Duplicate before update")
+	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Creation date ISO8601")
+	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Completion date ISO8601")
 	_ = cmd.MarkFlagRequired("id")
 	return cmd
 }
@@ -568,19 +568,19 @@ func newURLAddProjectCmd() *cobra.Command {
 			return runThingsURL(ctx, cfg, "add-project", params)
 		},
 	}
-	cmd.Flags().StringVar(&title, "title", "", "Titre projet")
+	cmd.Flags().StringVar(&title, "title", "", "Project title")
 	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
-	cmd.Flags().StringVar(&when, "when", "", "Quand")
+	cmd.Flags().StringVar(&when, "when", "", "When")
 	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
 	cmd.Flags().StringVar(&tags, "tags", "", "Tags")
-	cmd.Flags().StringVar(&area, "area", "", "Nom area destination")
-	cmd.Flags().StringVar(&areaID, "area-id", "", "ID area destination")
-	cmd.Flags().StringVar(&todos, "to-dos", "", "To-dos initiaux (lignes ou CSV)")
-	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Date création ISO8601")
-	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Date completion ISO8601")
-	cmd.Flags().BoolVar(&completed, "completed", false, "Créer comme complété")
-	cmd.Flags().BoolVar(&canceled, "canceled", false, "Créer comme annulé")
-	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler le projet")
+	cmd.Flags().StringVar(&area, "area", "", "Destination area name")
+	cmd.Flags().StringVar(&areaID, "area-id", "", "Destination area ID")
+	cmd.Flags().StringVar(&todos, "to-dos", "", "Initial to-dos (lines or CSV)")
+	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Creation date ISO8601")
+	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Completion date ISO8601")
+	cmd.Flags().BoolVar(&completed, "completed", false, "Create as completed")
+	cmd.Flags().BoolVar(&canceled, "canceled", false, "Create as canceled")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal project")
 	return cmd
 }
 
@@ -599,7 +599,7 @@ func newURLUpdateProjectCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(id) == "" {
-				return errors.New("--id est requis")
+				return errors.New("--id is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -631,23 +631,23 @@ func newURLUpdateProjectCmd() *cobra.Command {
 			return runThingsURL(ctx, cfg, "update-project", params)
 		},
 	}
-	cmd.Flags().StringVar(&id, "id", "", "ID du projet")
-	cmd.Flags().StringVar(&title, "title", "", "Nouveau titre")
-	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes")
-	cmd.Flags().StringVar(&prependNotes, "prepend-notes", "", "Préfixer notes")
-	cmd.Flags().StringVar(&appendNotes, "append-notes", "", "Suffixer notes")
-	cmd.Flags().StringVar(&when, "when", "", "Quand")
+	cmd.Flags().StringVar(&id, "id", "", "Project ID")
+	cmd.Flags().StringVar(&title, "title", "", "New title")
+	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
+	cmd.Flags().StringVar(&prependNotes, "prepend-notes", "", "Prepend notes")
+	cmd.Flags().StringVar(&appendNotes, "append-notes", "", "Append notes")
+	cmd.Flags().StringVar(&when, "when", "", "When")
 	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
 	cmd.Flags().StringVar(&tags, "tags", "", "Remplacer tags")
-	cmd.Flags().StringVar(&addTags, "add-tags", "", "Ajouter tags")
+	cmd.Flags().StringVar(&addTags, "add-tags", "", "Add tags")
 	cmd.Flags().StringVar(&area, "area", "", "Area destination")
-	cmd.Flags().StringVar(&areaID, "area-id", "", "ID area destination")
-	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Date création ISO8601")
-	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Date completion ISO8601")
+	cmd.Flags().StringVar(&areaID, "area-id", "", "Destination area ID")
+	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Creation date ISO8601")
+	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Completion date ISO8601")
 	cmd.Flags().BoolVar(&completed, "completed", false, "Set completed")
 	cmd.Flags().BoolVar(&canceled, "canceled", false, "Set canceled")
-	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler le projet")
-	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Dupliquer avant update")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal project")
+	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Duplicate before update")
 	_ = cmd.MarkFlagRequired("id")
 	return cmd
 }
@@ -673,7 +673,7 @@ func newURLShowCmd() *cobra.Command {
 			return runThingsURL(ctx, cfg, "show", params)
 		},
 	}
-	cmd.Flags().StringVar(&id, "id", "", "ID à révéler (ou liste builtin)")
+	cmd.Flags().StringVar(&id, "id", "", "ID to reveal (or built-in list)")
 	cmd.Flags().StringVar(&query, "query", "", "Recherche quick find")
 	cmd.Flags().StringVar(&filter, "filter", "", "Tags de filtre (CSV)")
 	return cmd
@@ -691,12 +691,12 @@ func newURLSearchCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(query) == "" {
-				return errors.New("--query est requis")
+				return errors.New("--query is required")
 			}
 			return runThingsURL(ctx, cfg, "search", map[string]string{"query": query})
 		},
 	}
-	cmd.Flags().StringVar(&query, "query", "", "Texte recherché")
+	cmd.Flags().StringVar(&query, "query", "", "Search text")
 	_ = cmd.MarkFlagRequired("query")
 	return cmd
 }
@@ -729,7 +729,7 @@ func newURLAddJSONCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(data) == "" {
-				return errors.New("--data est requis")
+				return errors.New("--data is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -747,7 +747,7 @@ func newURLAddJSONCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&data, "data", "", "Payload JSON")
-	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler l'élément créé")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal created item")
 	_ = cmd.MarkFlagRequired("data")
 	return cmd
 }
@@ -757,7 +757,7 @@ func newShowTaskCmd() *cobra.Command {
 	var withSubtasks bool
 	cmd := &cobra.Command{
 		Use:   "show-task",
-		Short: "Afficher le détail complet d'une tâche ou d'un projet",
+		Short: "Show full details for a task or project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -766,13 +766,13 @@ func newShowTaskCmd() *cobra.Command {
 			}
 			name = strings.TrimSpace(name)
 			if name == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			return runResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, withSubtasks))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche ou du projet")
-	cmd.Flags().BoolVar(&withSubtasks, "with-subtasks", true, "Inclure les sous-tâches")
+	cmd.Flags().StringVar(&name, "name", "", "Task or project name")
+	cmd.Flags().BoolVar(&withSubtasks, "with-subtasks", true, "Include subtasks")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -781,7 +781,7 @@ func newAddTaskCmd() *cobra.Command {
 	var name, notes, tags, listName, due, subtasks string
 	cmd := &cobra.Command{
 		Use:   "add-task",
-		Short: "Ajouter une tâche",
+		Short: "Add a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -789,7 +789,7 @@ func newAddTaskCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -805,7 +805,7 @@ func newAddTaskCmd() *cobra.Command {
 			}
 			taskID := strings.TrimSpace(out)
 			if taskID == "" {
-				return errors.New("impossible de récupérer l'id de la tâche créée")
+				return errors.New("could not retrieve created task id")
 			}
 			if len(subtasksList) > 0 {
 				token, err := requireAuthToken(cfg)
@@ -820,12 +820,12 @@ func newAddTaskCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
 	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
-	cmd.Flags().StringVar(&tags, "tags", "", "Tags (séparés par virgules)")
-	cmd.Flags().StringVar(&listName, "list", defaultListName, "Domaine")
-	cmd.Flags().StringVar(&due, "due", "", "Date d'échéance (YYYY-MM-DD [HH:mm[:ss]])")
-	cmd.Flags().StringVar(&subtasks, "subtasks", "", "Sous-tâches (nom1, nom2, ...)")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags (comma-separated)")
+	cmd.Flags().StringVar(&listName, "list", envOrDefault("THINGS_DEFAULT_LIST", defaultListName), "Destination area")
+	cmd.Flags().StringVar(&due, "due", "", "Due date (YYYY-MM-DD [HH:mm[:ss]])")
+	cmd.Flags().StringVar(&subtasks, "subtasks", "", "Subtasks (name1, name2, ...)")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -834,7 +834,7 @@ func newAddProjectCmd() *cobra.Command {
 	var name, notes, listName string
 	cmd := &cobra.Command{
 		Use:   "add-project",
-		Short: "Ajouter un projet",
+		Short: "Add a project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -842,7 +842,7 @@ func newAddProjectCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -850,9 +850,9 @@ func newAddProjectCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptAddProject(cfg.bundleID, strings.TrimSpace(listName), name, notes))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom du projet")
+	cmd.Flags().StringVar(&name, "name", "", "Project name")
 	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
-	cmd.Flags().StringVar(&listName, "list", defaultListName, "Domaine")
+	cmd.Flags().StringVar(&listName, "list", envOrDefault("THINGS_DEFAULT_LIST", defaultListName), "Destination area")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -861,7 +861,7 @@ func newAddListCmd() *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
 		Use:   "add-list",
-		Short: "Ajouter un domaine",
+		Short: "Add an area",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -869,7 +869,7 @@ func newAddListCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -881,7 +881,7 @@ end tell`, cfg.bundleID, escapeApple(name))
 			return runResult(ctx, cfg, script)
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom du domaine")
+	cmd.Flags().StringVar(&name, "name", "", "Area name")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -890,7 +890,7 @@ func newEditTaskCmd() *cobra.Command {
 	var sourceName, newName, notes, tags, moveTo, due, completion, creation, cancel string
 	cmd := &cobra.Command{
 		Use:   "edit-task",
-		Short: "Modifier une tâche (via son nom)",
+		Short: "Edit a task (by name)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -898,7 +898,7 @@ func newEditTaskCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(sourceName) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -939,15 +939,15 @@ func newEditTaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, script)
 		},
 	}
-	cmd.Flags().StringVar(&sourceName, "name", "", "Nom de la tâche à modifier")
-	cmd.Flags().StringVar(&newName, "new-name", "", "Nouveau nom")
-	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes")
+	cmd.Flags().StringVar(&sourceName, "name", "", "Task name to edit")
+	cmd.Flags().StringVar(&newName, "new-name", "", "New name")
+	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
 	cmd.Flags().StringVar(&tags, "tags", "", "Tags")
-	cmd.Flags().StringVar(&moveTo, "move-to", "", "Nouveau domaine")
-	cmd.Flags().StringVar(&due, "due", "", "Nouvelle date d'échéance")
-	cmd.Flags().StringVar(&completion, "completion", "", "Date de completion")
-	cmd.Flags().StringVar(&creation, "creation", "", "Date de création")
-	cmd.Flags().StringVar(&cancel, "cancel", "", "Date d'annulation")
+	cmd.Flags().StringVar(&moveTo, "move-to", "", "New area")
+	cmd.Flags().StringVar(&due, "due", "", "New due date")
+	cmd.Flags().StringVar(&completion, "completion", "", "Completion date")
+	cmd.Flags().StringVar(&creation, "creation", "", "Creation date")
+	cmd.Flags().StringVar(&cancel, "cancel", "", "Cancellation date")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -956,7 +956,7 @@ func newEditProjectCmd() *cobra.Command {
 	var sourceName, newName, notes string
 	cmd := &cobra.Command{
 		Use:   "edit-project",
-		Short: "Modifier un projet (via son nom)",
+		Short: "Edit a project (by name)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -964,10 +964,10 @@ func newEditProjectCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(sourceName) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if strings.TrimSpace(newName) == "" && strings.TrimSpace(notes) == "" {
-				return errors.New("spécifie --new-name et/ou --notes")
+				return errors.New("specify --new-name and/or --notes")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -975,9 +975,9 @@ func newEditProjectCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptEditProject(cfg.bundleID, sourceName, newName, notes))
 		},
 	}
-	cmd.Flags().StringVar(&sourceName, "name", "", "Nom du projet")
-	cmd.Flags().StringVar(&newName, "new-name", "", "Nouveau nom")
-	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes")
+	cmd.Flags().StringVar(&sourceName, "name", "", "Project name")
+	cmd.Flags().StringVar(&newName, "new-name", "", "New name")
+	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -986,7 +986,7 @@ func newEditListCmd() *cobra.Command {
 	var sourceName, newName string
 	cmd := &cobra.Command{
 		Use:   "edit-list",
-		Short: "Renommer un domaine",
+		Short: "Rename an area",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -994,10 +994,10 @@ func newEditListCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(sourceName) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if strings.TrimSpace(newName) == "" {
-				return errors.New("--new-name est requis")
+				return errors.New("--new-name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1010,8 +1010,8 @@ end tell`, cfg.bundleID, escapeApple(sourceName), escapeApple(newName))
 			return runResult(ctx, cfg, script)
 		},
 	}
-	cmd.Flags().StringVar(&sourceName, "name", "", "Nom du domaine")
-	cmd.Flags().StringVar(&newName, "new-name", "", "Nouveau nom")
+	cmd.Flags().StringVar(&sourceName, "name", "", "Area name")
+	cmd.Flags().StringVar(&newName, "new-name", "", "New name")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -1032,7 +1032,7 @@ func newDeleteCmd(kind, name string) *cobra.Command {
 	var target string
 	cmd := &cobra.Command{
 		Use:   name,
-		Short: "Supprimer un élément",
+		Short: "Delete an item",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1040,7 +1040,7 @@ func newDeleteCmd(kind, name string) *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(target) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1052,7 +1052,7 @@ func newDeleteCmd(kind, name string) *cobra.Command {
 			return runResult(ctx, cfg, script)
 		},
 	}
-	cmd.Flags().StringVar(&target, "name", "", "Nom de l'élément")
+	cmd.Flags().StringVar(&target, "name", "", "Item name")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -1061,7 +1061,7 @@ func newCompleteTaskCmd() *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
 		Use:   "complete-task",
-		Short: "Marquer une tâche comme réalisée",
+		Short: "Mark task as completed",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1069,7 +1069,7 @@ func newCompleteTaskCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1077,7 +1077,7 @@ func newCompleteTaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, true))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -1086,7 +1086,7 @@ func newUncompleteTaskCmd() *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
 		Use:   "uncomplete-task",
-		Short: "Annuler la réalisation d'une tâche",
+		Short: "Mark task as uncompleted",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1094,7 +1094,7 @@ func newUncompleteTaskCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1102,7 +1102,7 @@ func newUncompleteTaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, false))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -1111,7 +1111,7 @@ func newSetTagsCmd() *cobra.Command {
 	var name, tags string
 	cmd := &cobra.Command{
 		Use:   "set-tags",
-		Short: "Définir les tags d'une tâche ou d'un projet",
+		Short: "Set tags on a task or project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1119,7 +1119,7 @@ func newSetTagsCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name et --tags sont requis")
+				return errors.New("--name and --tags are required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1131,8 +1131,8 @@ end tell`, cfg.bundleID, scriptResolveTaskByName(name), escapeApple(tags))
 			return runResult(ctx, cfg, script)
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
-	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
@@ -1142,7 +1142,7 @@ func newSetTaskTagsCmd() *cobra.Command {
 	var name, tags string
 	cmd := &cobra.Command{
 		Use:   "set-task-tags",
-		Short: "Définir exactement les tags d'une tâche",
+		Short: "Set task tags exactly",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1150,11 +1150,11 @@ func newSetTaskTagsCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name et --tags sont requis")
+				return errors.New("--name and --tags are required")
 			}
 			tagList := parseCSVList(tags)
 			if len(tagList) == 0 {
-				return errors.New("préciser au moins un tag dans --tags")
+				return errors.New("specify at least one tag in --tags")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1162,8 +1162,8 @@ func newSetTaskTagsCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptSetTaskTags(cfg.bundleID, name, tagList))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
-	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
@@ -1173,7 +1173,7 @@ func newAddTaskTagsCmd() *cobra.Command {
 	var name, tags string
 	cmd := &cobra.Command{
 		Use:   "add-task-tags",
-		Short: "Ajouter des tags à une tâche (fusion avec les tags existants)",
+		Short: "Add tags to a task (merge with existing tags)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1181,11 +1181,11 @@ func newAddTaskTagsCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name et --tags sont requis")
+				return errors.New("--name and --tags are required")
 			}
 			tagList := parseCSVList(tags)
 			if len(tagList) == 0 {
-				return errors.New("préciser au moins un tag dans --tags")
+				return errors.New("specify at least one tag in --tags")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1193,8 +1193,8 @@ func newAddTaskTagsCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptAddTaskTags(cfg.bundleID, name, tagList))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
-	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
@@ -1204,7 +1204,7 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 	var name, tags string
 	cmd := &cobra.Command{
 		Use:   "remove-task-tags",
-		Short: "Supprimer des tags d'une tâche",
+		Short: "Remove tags from a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1212,11 +1212,11 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name et --tags sont requis")
+				return errors.New("--name and --tags are required")
 			}
 			tagList := parseCSVList(tags)
 			if len(tagList) == 0 {
-				return errors.New("préciser au moins un tag dans --tags")
+				return errors.New("specify at least one tag in --tags")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1224,8 +1224,8 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptRemoveTaskTags(cfg.bundleID, name, tagList))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
-	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
@@ -1235,7 +1235,7 @@ func newSetTaskNotesCmd() *cobra.Command {
 	var name, notes string
 	cmd := &cobra.Command{
 		Use:   "set-task-notes",
-		Short: "Définir les notes d'une tâche",
+		Short: "Set task notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1243,10 +1243,10 @@ func newSetTaskNotesCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if strings.TrimSpace(notes) == "" {
-				return errors.New("--notes est requis")
+				return errors.New("--notes is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1254,8 +1254,8 @@ func newSetTaskNotesCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptSetTaskNotes(cfg.bundleID, name, notes))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
-	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("notes")
 	return cmd
@@ -1265,7 +1265,7 @@ func newAppendTaskNotesCmd() *cobra.Command {
 	var name, notes, separator string
 	cmd := &cobra.Command{
 		Use:   "append-task-notes",
-		Short: "Ajouter des notes à la fin des notes d'une tâche",
+		Short: "Append notes to task notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1273,10 +1273,10 @@ func newAppendTaskNotesCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			if strings.TrimSpace(notes) == "" {
-				return errors.New("--notes est requis")
+				return errors.New("--notes is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1284,9 +1284,9 @@ func newAppendTaskNotesCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptAppendTaskNotes(cfg.bundleID, name, notes, separator))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
-	cmd.Flags().StringVar(&notes, "notes", "", "Texte à ajouter aux notes")
-	cmd.Flags().StringVar(&separator, "separator", "\n", "Séparateur d'ajout (défaut: saut de ligne)")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&notes, "notes", "", "Text to append to notes")
+	cmd.Flags().StringVar(&separator, "separator", "\n", "Append separator (default: newline)")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("notes")
 	return cmd
@@ -1297,7 +1297,7 @@ func newSetTaskDateCmd() *cobra.Command {
 	var clear bool
 	cmd := &cobra.Command{
 		Use:   "set-task-date",
-		Short: "Définir/mettre à jour la date d'échéance d'une tâche",
+		Short: "Set/update task due date",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1305,7 +1305,7 @@ func newSetTaskDateCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(name) == "" {
-				return errors.New("--name est requis")
+				return errors.New("--name is required")
 			}
 			dueDate, err := parseToAppleDate(due)
 			if err != nil {
@@ -1316,7 +1316,7 @@ func newSetTaskDateCmd() *cobra.Command {
 				return err
 			}
 			if !clear && dueDate == "" && deadlineDate == "" {
-				return errors.New("fournir --due, --deadline ou --clear")
+				return errors.New("provide --due, --deadline, or --clear")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1331,10 +1331,10 @@ func newSetTaskDateCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, dueDate, deadlineDate, clear))
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
-	cmd.Flags().StringVar(&due, "due", "", "Nouvelle échéance (YYYY-MM-DD [HH:mm[:ss]])")
-	cmd.Flags().StringVar(&deadline, "deadline", "", "Alias échéance (même format)")
-	cmd.Flags().BoolVar(&clear, "clear", false, "Effacer la date d'échéance")
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&due, "due", "", "New due date (YYYY-MM-DD [HH:mm[:ss]])")
+	cmd.Flags().StringVar(&deadline, "deadline", "", "Due date alias (same format)")
+	cmd.Flags().BoolVar(&clear, "clear", false, "Clear due date")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -1343,7 +1343,7 @@ func newListSubtasksCmd() *cobra.Command {
 	var taskName string
 	cmd := &cobra.Command{
 		Use:   "list-subtasks",
-		Short: "Lister les sous-tâches d'une tâche",
+		Short: "List task subtasks",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1351,12 +1351,12 @@ func newListSubtasksCmd() *cobra.Command {
 				return err
 			}
 			if strings.TrimSpace(taskName) == "" {
-				return errors.New("--task est requis")
+				return errors.New("--task is required")
 			}
 			return runResult(ctx, cfg, scriptListSubtasks(cfg.bundleID, taskName))
 		},
 	}
-	cmd.Flags().StringVar(&taskName, "task", "", "Nom de la tâche parent")
+	cmd.Flags().StringVar(&taskName, "task", "", "Task name parent")
 	_ = cmd.MarkFlagRequired("task")
 	return cmd
 }
@@ -1365,7 +1365,7 @@ func newAddSubtaskCmd() *cobra.Command {
 	var taskName, subtaskName string
 	cmd := &cobra.Command{
 		Use:   "add-subtask",
-		Short: "Ajouter un item de checklist native à une tâche",
+		Short: "Add a native checklist item to a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1375,7 +1375,7 @@ func newAddSubtaskCmd() *cobra.Command {
 			taskName = strings.TrimSpace(taskName)
 			subtaskName = strings.TrimSpace(subtaskName)
 			if taskName == "" || subtaskName == "" {
-				return errors.New("--task et --name sont requis")
+				return errors.New("--task and --name are required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1387,8 +1387,8 @@ func newAddSubtaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptAppendChecklistByName(cfg.bundleID, taskName, []string{subtaskName}, token))
 		},
 	}
-	cmd.Flags().StringVar(&taskName, "task", "", "Nom de la tâche parent")
-	cmd.Flags().StringVar(&subtaskName, "name", "", "Nom de la sous-tâche")
+	cmd.Flags().StringVar(&taskName, "task", "", "Task name parent")
+	cmd.Flags().StringVar(&subtaskName, "name", "", "Subtask name")
 	_ = cmd.MarkFlagRequired("task")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
@@ -1399,7 +1399,7 @@ func newEditSubtaskCmd() *cobra.Command {
 	var subtaskIndex int
 	cmd := &cobra.Command{
 		Use:   "edit-subtask",
-		Short: "Modifier une sous-tâche",
+		Short: "Edit a subtask",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1411,13 +1411,13 @@ func newEditSubtaskCmd() *cobra.Command {
 			newName = strings.TrimSpace(newName)
 			notes = strings.TrimSpace(notes)
 			if taskName == "" {
-				return errors.New("--task est requis")
+				return errors.New("--task is required")
 			}
 			if subtaskIndex <= 0 && subtaskName == "" {
-				return errors.New("fournir --index (>=1) ou --name")
+				return errors.New("provide --index (>=1) or --name")
 			}
 			if newName == "" && notes == "" {
-				return errors.New("fournir --new-name et/ou --notes")
+				return errors.New("provide --new-name and/or --notes")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1425,11 +1425,11 @@ func newEditSubtaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptEditSubtask(cfg.bundleID, taskName, subtaskName, subtaskIndex, newName, notes))
 		},
 	}
-	cmd.Flags().StringVar(&taskName, "task", "", "Nom de la tâche parent")
-	cmd.Flags().StringVar(&subtaskName, "name", "", "Nom de la sous-tâche à cibler")
-	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Index de la sous-tâche à cibler (1-based)")
-	cmd.Flags().StringVar(&newName, "new-name", "", "Nouveau nom")
-	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes")
+	cmd.Flags().StringVar(&taskName, "task", "", "Task name parent")
+	cmd.Flags().StringVar(&subtaskName, "name", "", "Target subtask name")
+	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Target subtask index (1-based)")
+	cmd.Flags().StringVar(&newName, "new-name", "", "New name")
+	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
 	_ = cmd.MarkFlagRequired("task")
 	return cmd
 }
@@ -1439,7 +1439,7 @@ func newDeleteSubtaskCmd() *cobra.Command {
 	var subtaskIndex int
 	cmd := &cobra.Command{
 		Use:   "delete-subtask",
-		Short: "Supprimer une sous-tâche",
+		Short: "Delete a subtask",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1449,10 +1449,10 @@ func newDeleteSubtaskCmd() *cobra.Command {
 			taskName = strings.TrimSpace(taskName)
 			subtaskName = strings.TrimSpace(subtaskName)
 			if taskName == "" {
-				return errors.New("--task est requis")
+				return errors.New("--task is required")
 			}
 			if subtaskIndex <= 0 && subtaskName == "" {
-				return errors.New("fournir --index (>=1) ou --name")
+				return errors.New("provide --index (>=1) or --name")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1460,9 +1460,9 @@ func newDeleteSubtaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptDeleteSubtask(cfg.bundleID, taskName, subtaskName, subtaskIndex))
 		},
 	}
-	cmd.Flags().StringVar(&taskName, "task", "", "Nom de la tâche parent")
-	cmd.Flags().StringVar(&subtaskName, "name", "", "Nom de la sous-tâche")
-	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Index de la sous-tâche (1-based)")
+	cmd.Flags().StringVar(&taskName, "task", "", "Task name parent")
+	cmd.Flags().StringVar(&subtaskName, "name", "", "Subtask name")
+	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Subtask index (1-based)")
 	_ = cmd.MarkFlagRequired("task")
 	return cmd
 }
@@ -1472,7 +1472,7 @@ func newCompleteSubtaskCmd() *cobra.Command {
 	var subtaskIndex int
 	cmd := &cobra.Command{
 		Use:   "complete-subtask",
-		Short: "Marquer une sous-tâche comme réalisée",
+		Short: "Mark subtask as completed",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1482,10 +1482,10 @@ func newCompleteSubtaskCmd() *cobra.Command {
 			taskName = strings.TrimSpace(taskName)
 			subtaskName = strings.TrimSpace(subtaskName)
 			if taskName == "" {
-				return errors.New("--task est requis")
+				return errors.New("--task is required")
 			}
 			if subtaskIndex <= 0 && subtaskName == "" {
-				return errors.New("fournir --index (>=1) ou --name")
+				return errors.New("provide --index (>=1) or --name")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1493,9 +1493,9 @@ func newCompleteSubtaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptSetSubtaskStatus(cfg.bundleID, taskName, subtaskName, subtaskIndex, true))
 		},
 	}
-	cmd.Flags().StringVar(&taskName, "task", "", "Nom de la tâche parent")
-	cmd.Flags().StringVar(&subtaskName, "name", "", "Nom de la sous-tâche")
-	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Index de la sous-tâche (1-based)")
+	cmd.Flags().StringVar(&taskName, "task", "", "Task name parent")
+	cmd.Flags().StringVar(&subtaskName, "name", "", "Subtask name")
+	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Subtask index (1-based)")
 	_ = cmd.MarkFlagRequired("task")
 	return cmd
 }
@@ -1505,7 +1505,7 @@ func newUncompleteSubtaskCmd() *cobra.Command {
 	var subtaskIndex int
 	cmd := &cobra.Command{
 		Use:   "uncomplete-subtask",
-		Short: "Annuler la réalisation d'une sous-tâche",
+		Short: "Mark subtask as uncompleted",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -1515,10 +1515,10 @@ func newUncompleteSubtaskCmd() *cobra.Command {
 			taskName = strings.TrimSpace(taskName)
 			subtaskName = strings.TrimSpace(subtaskName)
 			if taskName == "" {
-				return errors.New("--task est requis")
+				return errors.New("--task is required")
 			}
 			if subtaskIndex <= 0 && subtaskName == "" {
-				return errors.New("fournir --index (>=1) ou --name")
+				return errors.New("provide --index (>=1) or --name")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -1526,9 +1526,9 @@ func newUncompleteSubtaskCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptSetSubtaskStatus(cfg.bundleID, taskName, subtaskName, subtaskIndex, false))
 		},
 	}
-	cmd.Flags().StringVar(&taskName, "task", "", "Nom de la tâche parent")
-	cmd.Flags().StringVar(&subtaskName, "name", "", "Nom de la sous-tâche")
-	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Index de la sous-tâche (1-based)")
+	cmd.Flags().StringVar(&taskName, "task", "", "Task name parent")
+	cmd.Flags().StringVar(&subtaskName, "name", "", "Subtask name")
+	cmd.Flags().IntVar(&subtaskIndex, "index", 0, "Subtask index (1-based)")
 	_ = cmd.MarkFlagRequired("task")
 	return cmd
 }
@@ -1557,7 +1557,7 @@ func (r *runner) ensureReachable(ctx context.Context) error {
   return name
 end tell`, r.bundleID)
 	if _, err := r.run(ctx, script); err != nil {
-		return fmt.Errorf("Things Mac introuvable (%s): %w", r.bundleID, err)
+		return fmt.Errorf("Things app not found (%s): %w", r.bundleID, err)
 	}
 	return nil
 }
@@ -1617,7 +1617,7 @@ func scriptSearch(bundleID, listName, query string) string {
 
 func scriptAddTask(bundleID, listName, name, notes, tags, due string) string {
 	if strings.TrimSpace(listName) == "" {
-		listName = defaultListName
+		listName = envOrDefault("THINGS_DEFAULT_LIST", defaultListName)
 	}
 	parts := []string{fmt.Sprintf(`name:"%s"`, escapeApple(name))}
 	if strings.TrimSpace(notes) != "" {
@@ -1642,7 +1642,7 @@ end tell`
 func requireAuthToken(cfg *runtimeConfig) (string, error) {
 	token := strings.TrimSpace(cfg.authToken)
 	if token == "" {
-		return "", errors.New("auth-token requis pour la checklist native (Things > Réglages > Général). Utilise --auth-token ou THINGS_AUTH_TOKEN")
+		return "", errors.New("auth-token is required for native checklist (Things > Settings > General). Use --auth-token or THINGS_AUTH_TOKEN")
 	}
 	return token, nil
 }
@@ -1695,7 +1695,7 @@ func scriptListLiteral(values []string) string {
 
 func scriptAddProject(bundleID, listName, name, notes string) string {
 	if strings.TrimSpace(listName) == "" {
-		listName = defaultListName
+		listName = envOrDefault("THINGS_DEFAULT_LIST", defaultListName)
 	}
 	script := fmt.Sprintf(`tell application id "%s"
   set targetList to first list whose name is "%s"
@@ -1712,7 +1712,7 @@ end tell`
 
 func scriptEditTask(bundleID, source, newName, notes, tags, moveTo, due, completion, creation, cancel string) (string, error) {
 	if source == "" {
-		return "", errors.New("source name required")
+		return "", errors.New("source name is required")
 	}
 	script := fmt.Sprintf(`tell application id "%s"
 %s`, bundleID, scriptResolveTaskByName(source))
@@ -1895,11 +1895,11 @@ func scriptListSubtasks(bundleID, taskName string) string {
       end if
     end repeat
     if out is "" then
-      return "Aucune sous-tâche"
+      return "No subtasks"
     end if
     return out
   on error
-    return "Aucune sous-tâche"
+    return "No subtasks"
   end try
 end tell`, bundleID, scriptResolveTaskByName(taskName))
 }
@@ -1915,7 +1915,7 @@ func scriptAddSubtask(bundleID, taskName, subtaskName, notes string) string {
 	}
 	script += `  return id of s
   on error
-    error "Impossible d'ajouter une sous-tâche à cet élément."
+    error "Cannot add a subtask to this item."
   end try
 end tell`
 	return script
@@ -1934,7 +1934,7 @@ func scriptFindSubtask(bundleID, taskName, subtaskName string, index int) string
 %s  try
     set s to %s
   on error
-    error "Aucune sous-tâche trouvée sur cet élément."
+    error "No subtask found on this item."
   end try
 `, bundleID, scriptResolveTaskByName(taskName), target)
 }
@@ -1946,23 +1946,23 @@ func scriptShowTask(bundleID, taskName string, withSubtasks bool) string {
 	}
 	return fmt.Sprintf(`tell application id "%s"
 %s  set out to "ID: " & (id of t)
-  set out to out & linefeed & "Nom: " & (name of t)
+  set out to out & linefeed & "Name: " & (name of t)
   set out to out & linefeed & "Type: " & (class of t as string)
   set out to out & linefeed & "Statut: " & (status of t as string)
   if due date of t is not missing value then
-    set out to out & linefeed & "Échéance: " & (due date of t as string)
+    set out to out & linefeed & "Due: " & (due date of t as string)
   else
-    set out to out & linefeed & "Échéance: "
+    set out to out & linefeed & "Due: "
   end if
   if completion date of t is not missing value then
-    set out to out & linefeed & "Terminée le: " & (completion date of t as string)
+    set out to out & linefeed & "Completed on: " & (completion date of t as string)
   else
-    set out to out & linefeed & "Terminée le: "
+    set out to out & linefeed & "Completed on: "
   end if
   if creation date of t is not missing value then
-    set out to out & linefeed & "Créée le: " & (creation date of t as string)
+    set out to out & linefeed & "Created on: " & (creation date of t as string)
   else
-    set out to out & linefeed & "Créée le: "
+    set out to out & linefeed & "Created on: "
   end if
   set tagText to ""
   try
@@ -1985,7 +1985,7 @@ func scriptShowTask(bundleID, taskName string, withSubtasks bool) string {
   if %s then
     try
       set subtasks to to dos of t
-      set subtaskLines to "Aucune sous-tâche"
+      set subtaskLines to "No subtasks"
       if (count subtasks) > 0 then
         set subtaskLines to ""
         repeat with i from 1 to count subtasks
@@ -2001,9 +2001,9 @@ func scriptShowTask(bundleID, taskName string, withSubtasks bool) string {
           end if
         end repeat
       end if
-      set out to out & linefeed & "Sous-tâches:" & linefeed & subtaskLines
+      set out to out & linefeed & "Subtasks:" & linefeed & subtaskLines
     on error
-      set out to out & linefeed & "Sous-tâches: non supportées"
+      set out to out & linefeed & "Subtasks: not supported"
     end try
   end if
   return out
@@ -2055,7 +2055,7 @@ func scriptDelete(bundleID, kind, name string) (string, error) {
 	case "list":
 		subject = "list"
 	default:
-		return "", fmt.Errorf("kind inconnu: %s", kind)
+		return "", fmt.Errorf("unknown kind: %s", kind)
 	}
 	return fmt.Sprintf(`tell application id "%s"
   delete first %s whose name is "%s"
@@ -2102,7 +2102,7 @@ func (bm *backupManager) Create(ctx context.Context) ([]string, error) {
 		created = append(created, dst)
 	}
 	if len(created) == 0 {
-		return nil, errors.New("aucun fichier de base backupable trouvé")
+		return nil, errors.New("no backupable database file found")
 	}
 	if err := bm.prune(ctx, maxBackupsToKeep); err != nil {
 		return nil, fmt.Errorf("backup created but retention failed: %w", err)
@@ -2118,7 +2118,7 @@ func (bm *backupManager) Latest(ctx context.Context) (string, error) {
 		return "", err
 	}
 	if len(candidates) == 0 {
-		return "", errors.New("aucun backup disponible")
+		return "", errors.New("no backup available")
 	}
 	return candidates[0], nil
 }
@@ -2133,7 +2133,7 @@ func (bm *backupManager) FilesForTimestamp(ctx context.Context, ts string) ([]st
 		}
 	}
 	if len(paths) == 0 {
-		return nil, fmt.Errorf("aucun fichier pour le timestamp %s", ts)
+		return nil, fmt.Errorf("no file for timestamp %s", ts)
 	}
 	return paths, nil
 }
@@ -2261,7 +2261,7 @@ func parseDate(v string) (time.Time, error) {
 	if t, err := time.ParseInLocation("2006-01-02", v, time.Local); err == nil {
 		return t, nil
 	}
-	return time.Time{}, fmt.Errorf("format de date non reconnu: %s", v)
+	return time.Time{}, fmt.Errorf("unrecognized date format: %s", v)
 }
 
 func inferTimestamp(file string) string {
