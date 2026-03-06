@@ -185,6 +185,60 @@ things-agent url add --title "URL task" --tags "test"
 things-agent url update --id "<todo-id>" --append-checklist-items "one, two" --auth-token "<token>"
 ```
 
+## Troubleshooting
+
+### Permissions (macOS)
+
+If AppleScript calls fail or the CLI cannot control Things, validate the environment first:
+
+```bash
+osascript -e 'tell application "Things3" to get name'
+things-agent version
+```
+
+Then re-check macOS privacy settings for your terminal/agent app:
+
+- `System Settings -> Privacy & Security -> Automation` (allow access to `Things`)
+- `System Settings -> Privacy & Security -> Full Disk Access` (if your setup requires it)
+
+### Auth token (`THINGS_AUTH_TOKEN`)
+
+Native checklist updates require a valid token (`add-subtask`, `url update`, `add-task --subtasks`).
+If you see missing or invalid token errors:
+
+```bash
+export THINGS_AUTH_TOKEN="<your-things-token>"
+things-agent add-task --name "Token check" --subtasks "one, two"
+```
+
+You can also pass `--auth-token` explicitly per command.
+
+### Localized list names
+
+Things list names are localized (`Inbox`, `À classer`, etc.). If `--list` looks wrong or returns no results:
+
+```bash
+things-agent lists
+export THINGS_DEFAULT_LIST="À classer"
+things-agent tasks --list "À classer"
+```
+
+Always use exact list names returned by `things-agent lists` (including accents and casing).
+
+### Read-only database audit
+
+The CLI does not read SQLite directly. Use read commands to get a clear operational snapshot:
+
+```bash
+things-agent lists
+things-agent projects
+things-agent tags list
+things-agent tasks --query "<keyword>"
+things-agent search --query "<keyword>" --list "<localized-list>"
+```
+
+This keeps audit workflows safe while respecting the no-direct-database rule.
+
 ### Useful Commands
 
 | Command group | Commands | Notes |
