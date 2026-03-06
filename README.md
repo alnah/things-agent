@@ -166,21 +166,19 @@ things-agent url update --id "<todo-id>" --append-checklist-items "one, two" --a
 
 ### Useful Commands
 
-- `session-start`
-- `backup`, `restore [--file <path or timestamp>]`
-- `url add|update|add-project|update-project|show|search|version|add-json` (direct mapping of Things URL Scheme)
-- `lists`, `projects`
-- `tasks [--list <name>] [--query <text>]`
-- `search --query <text> [--list <name>]`
-- `add-task`, `edit-task`, `delete-task`, `complete-task`, `uncomplete-task`
-- `add-task --subtasks "a, b"` creates a native checklist (requires `--auth-token` or `THINGS_AUTH_TOKEN`)
-- `set-task-notes`, `append-task-notes`, `set-task-date`
-- `add-project`, `edit-project`, `delete-project`
-- `add-list`, `edit-list`, `delete-list`
-- `add-subtask` adds a native checklist item (token required), `edit-subtask`, `delete-subtask`, `complete-subtask`, `uncomplete-subtask`, `list-subtasks`
-- `set-tags`
-- `set-task-tags`, `add-task-tags`, `remove-task-tags`
-- `version`
+| Command group | Commands | Notes |
+| --- | --- | --- |
+| Session and backup | `session-start`, `backup`, `restore [--file <path or timestamp>]` | Backup-first workflow |
+| Core listing/search | `lists`, `projects`, `tasks [--list <name>] [--query <text>]`, `search --query <text> [--list <name>]` | Works with localized list names |
+| Task lifecycle | `add-task`, `edit-task`, `delete-task`, `complete-task`, `uncomplete-task` | Standard to-do operations |
+| Task metadata | `set-task-notes`, `append-task-notes`, `set-task-date` | Notes and date updates |
+| Tags | `set-tags`, `set-task-tags`, `add-task-tags`, `remove-task-tags` | Exact set and incremental updates |
+| Projects | `add-project`, `edit-project`, `delete-project` | Project CRUD |
+| Areas/lists | `add-list`, `edit-list`, `delete-list` | Area/list CRUD |
+| Subtasks/checklist | `add-subtask`, `edit-subtask`, `delete-subtask`, `complete-subtask`, `uncomplete-subtask`, `list-subtasks` | `add-subtask` uses native checklist and requires token |
+| URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|add-json` | Direct mapping of Things URL Scheme |
+| CLI info | `version` | Print CLI version |
+| Checklist shortcut | `add-task --subtasks "a, b"` | Creates native checklist, requires `--auth-token` or `THINGS_AUTH_TOKEN` |
 
 ### Safety personal choice
 
@@ -190,11 +188,13 @@ things-agent url update --id "<todo-id>" --append-checklist-items "one, two" --a
 
 ### URL Scheme API Mapping
 
-- `things-agent url add`: options from `things:///add` (`title`, `notes`, `when`, `deadline`, `tags`, `checklist-items`, `list`, `list-id`, `heading`, `heading-id`, `completed`, `canceled`, `reveal`, `notes-template`)
-- `things-agent url update`: options from `things:///update` (`id`, `title`, `notes`, `prepend-notes`, `append-notes`, `when`, `deadline`, `tags`, `add-tags`, `checklist-items`, `prepend-checklist-items`, `append-checklist-items`, `list`, `list-id`, `heading`, `heading-id`, `completed`, `canceled`, `reveal`, `duplicate`, `creation-date`, `completion-date`)
-- `things-agent url add-project`: options from `things:///add-project` (`title`, `notes`, `when`, `deadline`, `tags`, `area`, `area-id`, `to-dos`, `completed`, `canceled`, `reveal`, `creation-date`, `completion-date`)
-- `things-agent url update-project`: options from `things:///update-project` (`id`, `title`, `notes`, `prepend-notes`, `append-notes`, `when`, `deadline`, `tags`, `add-tags`, `area`, `area-id`, `completed`, `canceled`, `reveal`, `duplicate`, `creation-date`, `completion-date`)
-- `things-agent url show`: options from `things:///show` (`id`, `query`, `filter`)
-- `things-agent url search`: option `query`
-- `things-agent url version`
-- `things-agent url add-json`: `data` (+ `auth-token` required when using `operation:update`)
+| CLI command | Things URL endpoint | Supported options |
+| --- | --- | --- |
+| `things-agent url add` | `things:///add` | `title`, `notes`, `when`, `deadline`, `tags`, `checklist-items`, `list`, `list-id`, `heading`, `heading-id`, `completed`, `canceled`, `reveal`, `notes-template` |
+| `things-agent url update` | `things:///update` | `id`, `title`, `notes`, `prepend-notes`, `append-notes`, `when`, `deadline`, `tags`, `add-tags`, `checklist-items`, `prepend-checklist-items`, `append-checklist-items`, `list`, `list-id`, `heading`, `heading-id`, `completed`, `canceled`, `reveal`, `duplicate`, `creation-date`, `completion-date` |
+| `things-agent url add-project` | `things:///add-project` | `title`, `notes`, `when`, `deadline`, `tags`, `area`, `area-id`, `to-dos`, `completed`, `canceled`, `reveal`, `creation-date`, `completion-date` |
+| `things-agent url update-project` | `things:///update-project` | `id`, `title`, `notes`, `prepend-notes`, `append-notes`, `when`, `deadline`, `tags`, `add-tags`, `area`, `area-id`, `completed`, `canceled`, `reveal`, `duplicate`, `creation-date`, `completion-date` |
+| `things-agent url show` | `things:///show` | `id`, `query`, `filter` |
+| `things-agent url search` | `things:///search` | `query` |
+| `things-agent url version` | `things:///version` | none |
+| `things-agent url add-json` | `things:///add-json` | `data` (`auth-token` required when using `operation:update`) |
