@@ -31,6 +31,57 @@ This file defines operating rules for the **things-agent** repository (Things 3 
 - On failure, clearly report the executed command and returned error.
 - Avoid non-idempotent destructive operations without backup.
 
+## Full CLI Command Inventory
+
+The agent should treat this list as the current command surface of the CLI:
+
+- `add-list`
+- `add-project`
+- `add-subtask`
+- `add-task`
+- `add-task-tags`
+- `append-task-notes`
+- `backup`
+- `complete-subtask`
+- `complete-task`
+- `delete-list`
+- `delete-project`
+- `delete-subtask`
+- `delete-task`
+- `edit-list`
+- `edit-project`
+- `edit-subtask`
+- `edit-task`
+- `help`
+- `list-subtasks`
+- `lists`
+- `projects`
+- `remove-task-tags`
+- `restore`
+- `search`
+- `session-start`
+- `set-tags`
+- `set-task-date`
+- `set-task-notes`
+- `set-task-tags`
+- `show-task`
+- `tasks`
+- `uncomplete-subtask`
+- `uncomplete-task`
+- `url`
+- `version`
+
+URL subcommands:
+
+- `url add`
+- `url add-json`
+- `url add-project`
+- `url search`
+- `url show`
+- `url update`
+- `url update-project`
+- `url version`
+
 ## Expected Operations to Implement / Document
 
 - Search and read:
@@ -79,4 +130,4 @@ This file defines operating rules for the **things-agent** repository (Things 3 
   2. read/write action(s)
   3. verification
 - Document IDs returned by Things and expected effects.
-- If AppleScript command support is unavailable on the machine/CI, explain fallback clearly and never modify the database manually.
+- If AppleScript command support is unavailable on the machine/CI, explain fallback options clearly, never modify the database manually, and ask the user to decide how to proceed.

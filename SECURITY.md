@@ -53,6 +53,14 @@ Retention is capped to the most recent 50 backups.
 The project intentionally avoids exposing high-risk bulk-destructive behavior where possible.
 Deletion is primarily done item-by-item (task/project/list), with backup beforehand.
 
+## AppleScript Availability and Fallback Decision
+
+If AppleScript support is unavailable on a given machine or CI environment:
+
+- Explain fallback options clearly.
+- Do **not** modify the Things database manually.
+- Ask the user to choose how to proceed before taking further action.
+
 ## Reporting a Security Issue
 
 If you find a security issue, open a private report with reproduction steps and impact details.
