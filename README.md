@@ -13,7 +13,8 @@ This repository started as a fast prototype built in one day with Codex (`gpt-5.
 - It is primarily a proof of concept, not a fully hardened product yet.
 - It still needs cleanup, more refactoring, stronger safety checks, and broader tests.
 
-The project is intended to work with Codex and Claude Code today, and should also be usable from other local-agent setups (for example Cline), but this has not been fully validated yet.
+The project is validated for Codex and Claude Code today.
+It should also be usable from other local-agent setups (for example Cline), but those integrations have not been fully validated yet.
 
 For Claude Code, the convention is to read instructions from `CLAUDE.md`, while this project keeps `AGENTS.md` as the source of truth. The recommended setup is to create a symlink so both tools read exactly the same instructions:
 
