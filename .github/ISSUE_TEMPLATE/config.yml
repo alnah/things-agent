@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: New features and architecture discussions
+    url: https://github.com/alnah/things-agent/discussions
+    about: Start a GitHub Discussion before proposing new features or architecture changes.

@@ -1,0 +1,105 @@
+name: Bug or security report
+description: Structured report for bugs or security findings
+title: "[report] <short title>"
+labels:
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for bugs and validated security findings.
+        Reports without reproduction steps, impact, and remediation advice are not prioritized.
+        If AI tools were used (Codex, Claude, or others), signal it explicitly.
+
+  - type: input
+    id: report_title
+    attributes:
+      label: Title
+      description: Clear and concise report title.
+      placeholder: Example - URL update fails when id contains spaces
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Assessment
+      options:
+        - critical
+        - high
+        - medium
+        - low
+        - informational
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What can happen if this issue is exploited or triggered?
+      placeholder: Data loss, unauthorized changes, denial of service, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: affected_component
+    attributes:
+      label: Affected Component
+      description: CLI command, module, file path, workflow, etc.
+      placeholder: cmd_url_task.go / url update
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Technical Reproduction
+      description: Step-by-step deterministic reproduction, including commands and inputs.
+      placeholder: |
+        1. Run ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: demonstrated_impact
+    attributes:
+      label: Demonstrated Impact
+      description: Concrete proof and observable outcome.
+      placeholder: Logs, screenshots, before/after state, PoC output.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Things version, CLI version, architecture, locale, shell, etc.
+      placeholder: macOS 15.x, Things 3.x, things-agent vX.Y.Z, zsh
+    validations:
+      required: true
+
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Remediation Advice
+      description: Proposed mitigation/fix and rationale.
+      placeholder: Validate input X, add guard Y, add test Z.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ai_tools
+    attributes:
+      label: Built with AI tools
+      description: Signal whether AI tooling was used to produce this report.
+      options:
+        - no
+        - yes - Codex
+        - yes - Claude
+        - yes - Cline
+        - yes - other
+    validations:
+      required: true
