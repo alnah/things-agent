@@ -23,7 +23,7 @@ const (
 	backupTSFormat     = "2006-01-02:15-04-05"
 	maxBackupsToKeep   = 50
 	defaultListName    = "À classer"
-	cliVersion         = "0.2.3"
+	cliVersion         = "0.3.0"
 )
 
 var config = struct {
@@ -70,6 +70,7 @@ qui modifie des données.`,
 		newBackupCmd(),
 		newRestoreCmd(),
 		newSessionStartCmd(),
+		newURLCmd(),
 		newListsCmd(),
 		newProjectsCmd(),
 		newTasksCmd(),
@@ -154,6 +155,64 @@ func runResult(ctx context.Context, cfg *runtimeConfig, script string) error {
 		fmt.Println(out)
 	}
 	return nil
+}
+
+func runThingsURL(ctx context.Context, cfg *runtimeConfig, command string, params map[string]string) error {
+	values := url.Values{}
+	for k, v := range params {
+		values.Set(k, v)
+	}
+	thingsURL := "things:///" + command
+	if encoded := values.Encode(); encoded != "" {
+		thingsURL += "?" + encoded
+	}
+	return runResult(ctx, cfg, scriptOpenURL(thingsURL))
+}
+
+func scriptOpenURL(rawURL string) string {
+	return fmt.Sprintf(`open location "%s"
+return "ok"`, escapeApple(rawURL))
+}
+
+func setIfNotEmpty(params map[string]string, key, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	params[key] = value
+}
+
+func setIfChanged(cmd *cobra.Command, params map[string]string, key, value string) {
+	if !cmd.Flags().Changed(key) {
+		return
+	}
+	params[key] = strings.TrimSpace(value)
+}
+
+func setBoolIfChanged(cmd *cobra.Command, params map[string]string, key string, value bool) {
+	if !cmd.Flags().Changed(key) {
+		return
+	}
+	if value {
+		params[key] = "true"
+		return
+	}
+	params[key] = "false"
+}
+
+func normalizeChecklistInput(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.Contains(raw, "\n") {
+		return raw
+	}
+	items := parseCSVList(raw)
+	if len(items) == 0 {
+		return raw
+	}
+	return strings.Join(items, "\n")
 }
 
 func newBackupCmd() *cobra.Command {
@@ -322,6 +381,374 @@ func newSearchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&query, "query", "", "Texte recherché")
 	cmd.Flags().StringVar(&listName, "list", "", "Limiter au domaine")
 	_ = cmd.MarkFlagRequired("query")
+	return cmd
+}
+
+func newURLCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "url",
+		Short: "Commandes Things URL Scheme (API officielle)",
+	}
+	cmd.AddCommand(
+		newURLAddCmd(),
+		newURLUpdateCmd(),
+		newURLAddProjectCmd(),
+		newURLUpdateProjectCmd(),
+		newURLShowCmd(),
+		newURLSearchCmd(),
+		newURLVersionCmd(),
+		newURLAddJSONCmd(),
+	)
+	return cmd
+}
+
+func newURLAddCmd() *cobra.Command {
+	var (
+		title, notes, when, deadline, tags, checklistItems, listName, listID, heading, headingID, notesTemplate string
+		completed, canceled, reveal                                                                               bool
+	)
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "things:///add",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			params := map[string]string{}
+			setIfNotEmpty(params, "title", title)
+			setIfNotEmpty(params, "notes", notes)
+			setIfNotEmpty(params, "when", when)
+			setIfChanged(cmd, params, "deadline", deadline)
+			setIfNotEmpty(params, "tags", tags)
+			setIfNotEmpty(params, "checklist-items", normalizeChecklistInput(checklistItems))
+			setIfNotEmpty(params, "list", listName)
+			setIfNotEmpty(params, "list-id", listID)
+			setIfNotEmpty(params, "heading", heading)
+			setIfNotEmpty(params, "heading-id", headingID)
+			setIfNotEmpty(params, "notes-template", notesTemplate)
+			setBoolIfChanged(cmd, params, "completed", completed)
+			setBoolIfChanged(cmd, params, "canceled", canceled)
+			setBoolIfChanged(cmd, params, "reveal", reveal)
+			return runThingsURL(ctx, cfg, "add", params)
+		},
+	}
+	cmd.Flags().StringVar(&title, "title", "", "Titre")
+	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
+	cmd.Flags().StringVar(&when, "when", "", "Date/quand (today, tomorrow, evening, someday, etc.)")
+	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgule")
+	cmd.Flags().StringVar(&checklistItems, "checklist-items", "", "Checklist (lignes ou CSV)")
+	cmd.Flags().StringVar(&listName, "list", "", "Nom du projet/area destination")
+	cmd.Flags().StringVar(&listID, "list-id", "", "ID du projet/area destination")
+	cmd.Flags().StringVar(&heading, "heading", "", "Nom du heading destination")
+	cmd.Flags().StringVar(&headingID, "heading-id", "", "ID du heading destination")
+	cmd.Flags().StringVar(&notesTemplate, "notes-template", "", "replace-title|replace-notes|replace-checklist-items")
+	cmd.Flags().BoolVar(&completed, "completed", false, "Créer comme complétée")
+	cmd.Flags().BoolVar(&canceled, "canceled", false, "Créer comme annulée")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler après création")
+	return cmd
+}
+
+func newURLUpdateCmd() *cobra.Command {
+	var (
+		id, title, notes, prependNotes, appendNotes, when, deadline, tags, addTags, checklistItems, prependChecklist, appendChecklist string
+		listName, listID, heading, headingID                                                                                            string
+		completed, canceled, reveal, duplicate                                                                                         bool
+		creationDate, completionDate                                                                                                   string
+	)
+	cmd := &cobra.Command{
+		Use:   "update",
+		Short: "things:///update",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(id) == "" {
+				return errors.New("--id est requis")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
+			params := map[string]string{
+				"auth-token": token,
+				"id":         id,
+			}
+			setIfNotEmpty(params, "title", title)
+			setIfChanged(cmd, params, "notes", notes)
+			setIfChanged(cmd, params, "prepend-notes", prependNotes)
+			setIfChanged(cmd, params, "append-notes", appendNotes)
+			setIfChanged(cmd, params, "when", when)
+			setIfChanged(cmd, params, "deadline", deadline)
+			setIfChanged(cmd, params, "tags", tags)
+			setIfChanged(cmd, params, "add-tags", addTags)
+			setIfChanged(cmd, params, "checklist-items", normalizeChecklistInput(checklistItems))
+			setIfChanged(cmd, params, "prepend-checklist-items", normalizeChecklistInput(prependChecklist))
+			setIfChanged(cmd, params, "append-checklist-items", normalizeChecklistInput(appendChecklist))
+			setIfChanged(cmd, params, "list", listName)
+			setIfChanged(cmd, params, "list-id", listID)
+			setIfChanged(cmd, params, "heading", heading)
+			setIfChanged(cmd, params, "heading-id", headingID)
+			setBoolIfChanged(cmd, params, "completed", completed)
+			setBoolIfChanged(cmd, params, "canceled", canceled)
+			setBoolIfChanged(cmd, params, "reveal", reveal)
+			setBoolIfChanged(cmd, params, "duplicate", duplicate)
+			setIfChanged(cmd, params, "creation-date", creationDate)
+			setIfChanged(cmd, params, "completion-date", completionDate)
+			return runThingsURL(ctx, cfg, "update", params)
+		},
+	}
+	cmd.Flags().StringVar(&id, "id", "", "ID du to-do à modifier")
+	cmd.Flags().StringVar(&title, "title", "", "Nouveau titre")
+	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes (vide pour effacer)")
+	cmd.Flags().StringVar(&prependNotes, "prepend-notes", "", "Préfixer les notes")
+	cmd.Flags().StringVar(&appendNotes, "append-notes", "", "Suffixer les notes")
+	cmd.Flags().StringVar(&when, "when", "", "Quand")
+	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
+	cmd.Flags().StringVar(&tags, "tags", "", "Remplacer les tags")
+	cmd.Flags().StringVar(&addTags, "add-tags", "", "Ajouter des tags")
+	cmd.Flags().StringVar(&checklistItems, "checklist-items", "", "Remplacer checklist (lignes ou CSV)")
+	cmd.Flags().StringVar(&prependChecklist, "prepend-checklist-items", "", "Préfixer checklist")
+	cmd.Flags().StringVar(&appendChecklist, "append-checklist-items", "", "Suffixer checklist")
+	cmd.Flags().StringVar(&listName, "list", "", "Projet/area destination")
+	cmd.Flags().StringVar(&listID, "list-id", "", "ID projet/area destination")
+	cmd.Flags().StringVar(&heading, "heading", "", "Heading destination")
+	cmd.Flags().StringVar(&headingID, "heading-id", "", "ID heading destination")
+	cmd.Flags().BoolVar(&completed, "completed", false, "Définir statut completed")
+	cmd.Flags().BoolVar(&canceled, "canceled", false, "Définir statut canceled")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler l'item")
+	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Dupliquer avant update")
+	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Date création ISO8601")
+	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Date completion ISO8601")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+func newURLAddProjectCmd() *cobra.Command {
+	var (
+		title, notes, when, deadline, tags, area, areaID, todos, creationDate, completionDate string
+		completed, canceled, reveal                                                             bool
+	)
+	cmd := &cobra.Command{
+		Use:   "add-project",
+		Short: "things:///add-project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			params := map[string]string{}
+			setIfNotEmpty(params, "title", title)
+			setIfNotEmpty(params, "notes", notes)
+			setIfNotEmpty(params, "when", when)
+			setIfChanged(cmd, params, "deadline", deadline)
+			setIfNotEmpty(params, "tags", tags)
+			setIfNotEmpty(params, "area", area)
+			setIfNotEmpty(params, "area-id", areaID)
+			setIfNotEmpty(params, "to-dos", normalizeChecklistInput(todos))
+			setIfChanged(cmd, params, "creation-date", creationDate)
+			setIfChanged(cmd, params, "completion-date", completionDate)
+			setBoolIfChanged(cmd, params, "completed", completed)
+			setBoolIfChanged(cmd, params, "canceled", canceled)
+			setBoolIfChanged(cmd, params, "reveal", reveal)
+			return runThingsURL(ctx, cfg, "add-project", params)
+		},
+	}
+	cmd.Flags().StringVar(&title, "title", "", "Titre projet")
+	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
+	cmd.Flags().StringVar(&when, "when", "", "Quand")
+	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags")
+	cmd.Flags().StringVar(&area, "area", "", "Nom area destination")
+	cmd.Flags().StringVar(&areaID, "area-id", "", "ID area destination")
+	cmd.Flags().StringVar(&todos, "to-dos", "", "To-dos initiaux (lignes ou CSV)")
+	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Date création ISO8601")
+	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Date completion ISO8601")
+	cmd.Flags().BoolVar(&completed, "completed", false, "Créer comme complété")
+	cmd.Flags().BoolVar(&canceled, "canceled", false, "Créer comme annulé")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler le projet")
+	return cmd
+}
+
+func newURLUpdateProjectCmd() *cobra.Command {
+	var (
+		id, title, notes, prependNotes, appendNotes, when, deadline, tags, addTags, area, areaID, creationDate, completionDate string
+		completed, canceled, reveal, duplicate                                                                                bool
+	)
+	cmd := &cobra.Command{
+		Use:   "update-project",
+		Short: "things:///update-project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(id) == "" {
+				return errors.New("--id est requis")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
+			params := map[string]string{
+				"auth-token": token,
+				"id":         id,
+			}
+			setIfChanged(cmd, params, "title", title)
+			setIfChanged(cmd, params, "notes", notes)
+			setIfChanged(cmd, params, "prepend-notes", prependNotes)
+			setIfChanged(cmd, params, "append-notes", appendNotes)
+			setIfChanged(cmd, params, "when", when)
+			setIfChanged(cmd, params, "deadline", deadline)
+			setIfChanged(cmd, params, "tags", tags)
+			setIfChanged(cmd, params, "add-tags", addTags)
+			setIfChanged(cmd, params, "area", area)
+			setIfChanged(cmd, params, "area-id", areaID)
+			setIfChanged(cmd, params, "creation-date", creationDate)
+			setIfChanged(cmd, params, "completion-date", completionDate)
+			setBoolIfChanged(cmd, params, "completed", completed)
+			setBoolIfChanged(cmd, params, "canceled", canceled)
+			setBoolIfChanged(cmd, params, "reveal", reveal)
+			setBoolIfChanged(cmd, params, "duplicate", duplicate)
+			return runThingsURL(ctx, cfg, "update-project", params)
+		},
+	}
+	cmd.Flags().StringVar(&id, "id", "", "ID du projet")
+	cmd.Flags().StringVar(&title, "title", "", "Nouveau titre")
+	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes")
+	cmd.Flags().StringVar(&prependNotes, "prepend-notes", "", "Préfixer notes")
+	cmd.Flags().StringVar(&appendNotes, "append-notes", "", "Suffixer notes")
+	cmd.Flags().StringVar(&when, "when", "", "Quand")
+	cmd.Flags().StringVar(&deadline, "deadline", "", "Deadline (vide pour effacer)")
+	cmd.Flags().StringVar(&tags, "tags", "", "Remplacer tags")
+	cmd.Flags().StringVar(&addTags, "add-tags", "", "Ajouter tags")
+	cmd.Flags().StringVar(&area, "area", "", "Area destination")
+	cmd.Flags().StringVar(&areaID, "area-id", "", "ID area destination")
+	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Date création ISO8601")
+	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Date completion ISO8601")
+	cmd.Flags().BoolVar(&completed, "completed", false, "Set completed")
+	cmd.Flags().BoolVar(&canceled, "canceled", false, "Set canceled")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler le projet")
+	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Dupliquer avant update")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+func newURLShowCmd() *cobra.Command {
+	var id, query, filter string
+	cmd := &cobra.Command{
+		Use:   "show",
+		Short: "things:///show",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			params := map[string]string{}
+			setIfNotEmpty(params, "id", id)
+			setIfNotEmpty(params, "query", query)
+			setIfNotEmpty(params, "filter", filter)
+			if len(params) == 0 {
+				return errors.New("fournir au moins --id ou --query")
+			}
+			return runThingsURL(ctx, cfg, "show", params)
+		},
+	}
+	cmd.Flags().StringVar(&id, "id", "", "ID à révéler (ou liste builtin)")
+	cmd.Flags().StringVar(&query, "query", "", "Recherche quick find")
+	cmd.Flags().StringVar(&filter, "filter", "", "Tags de filtre (CSV)")
+	return cmd
+}
+
+func newURLSearchCmd() *cobra.Command {
+	var query string
+	cmd := &cobra.Command{
+		Use:   "search",
+		Short: "things:///search",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(query) == "" {
+				return errors.New("--query est requis")
+			}
+			return runThingsURL(ctx, cfg, "search", map[string]string{"query": query})
+		},
+	}
+	cmd.Flags().StringVar(&query, "query", "", "Texte recherché")
+	_ = cmd.MarkFlagRequired("query")
+	return cmd
+}
+
+func newURLVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "things:///version",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			return runThingsURL(ctx, cfg, "version", map[string]string{})
+		},
+	}
+}
+
+func newURLAddJSONCmd() *cobra.Command {
+	var data string
+	var reveal bool
+	cmd := &cobra.Command{
+		Use:   "add-json",
+		Short: "things:///add-json",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(data) == "" {
+				return errors.New("--data est requis")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			params := map[string]string{"data": data}
+			if strings.Contains(data, `"operation":"update"`) || strings.Contains(data, `"operation": "update"`) {
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				params["auth-token"] = token
+			}
+			setBoolIfChanged(cmd, params, "reveal", reveal)
+			return runThingsURL(ctx, cfg, "add-json", params)
+		},
+	}
+	cmd.Flags().StringVar(&data, "data", "", "Payload JSON")
+	cmd.Flags().BoolVar(&reveal, "reveal", false, "Révéler l'élément créé")
+	_ = cmd.MarkFlagRequired("data")
 	return cmd
 }
 
