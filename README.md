@@ -1,5 +1,11 @@
 # things-agent
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/alnah/things-agent.svg)](https://pkg.go.dev/github.com/alnah/things-agent)
+[![Go Report Card](https://goreportcard.com/badge/github.com/alnah/things-agent)](https://goreportcard.com/report/github.com/alnah/things-agent)
+[![Build Status](https://github.com/alnah/things-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/alnah/things-agent/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/alnah/things-agent/graph/badge.svg)](https://codecov.io/gh/alnah/things-agent)
+[![License](https://img.shields.io/github/license/alnah/things-agent)](./LICENSE)
+
 Go CLI to drive Things (macOS) through AppleScript only, built with `cobra`.
 
 See [AGENTS.md](./AGENTS.md) for project operation rules (session-start backup, retention, safety, conventions).
@@ -73,6 +79,12 @@ go install github.com/alnah/things-agent@main
 ```
 
 Releases are built from `v*` tags with GoReleaser.
+
+## CI and coverage
+
+- `ci.yml` runs unit tests on each push/PR.
+- It also runs mocked integration tests (`-tags=integration`) without direct DB access.
+- Coverage is uploaded to Codecov from CI.
 
 ## Hybrid setup for AI agents required
 
