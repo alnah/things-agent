@@ -31,10 +31,34 @@ Default target list is `Inbox`. You can override it with `THINGS_DEFAULT_LIST` (
 ```bash
 cd things-agent
 go mod tidy
-go build -o /usr/local/bin/things-agent .
+go install .
 ```
 
 You can also choose a different binary name at build time.
+
+## Setup for AI Agents
+
+Use this checklist before running the project with Codex or Claude Code:
+
+```bash
+# 1) install the CLI
+cd things-agent
+go mod tidy
+go install .
+
+# 2) optional runtime env (example for French Things setup)
+export THINGS_DEFAULT_LIST="À classer"
+
+# 3) required for URL update/checklist operations
+export THINGS_AUTH_TOKEN="<your-things-token>"
+
+# 4) keep one instruction source for Codex + Claude Code
+ln -sf AGENTS.md CLAUDE.md
+
+# 5) quick health check
+things-agent version
+things-agent session-start
+```
 
 ## Usage
 
