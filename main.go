@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,20 +23,22 @@ const (
 	backupTSFormat     = "2006-01-02:15-04-05"
 	maxBackupsToKeep   = 50
 	defaultListName    = "À classer"
-	cliVersion         = "0.2.1"
+	cliVersion         = "0.2.3"
 )
 
 var config = struct {
-	bundleID string
-	dataDir  string
+	bundleID  string
+	dataDir   string
+	authToken string
 }{
 	bundleID: envOrDefault("THINGS_BUNDLE_ID", defaultBundleID),
 }
 
 type runtimeConfig struct {
-	bundleID string
-	dataDir  string
-	runner   *runner
+	bundleID  string
+	dataDir   string
+	authToken string
+	runner    *runner
 }
 
 func main() {
@@ -61,6 +64,7 @@ qui modifie des données.`,
 
 	root.PersistentFlags().StringVar(&config.bundleID, "bundle-id", envOrDefault("THINGS_BUNDLE_ID", defaultBundleID), "Bundle id de l'application Things")
 	root.PersistentFlags().StringVar(&config.dataDir, "data-dir", envOrDefault("THINGS_DATA_DIR", ""), "Chemin de la base Things")
+	root.PersistentFlags().StringVar(&config.authToken, "auth-token", envOrDefault("THINGS_AUTH_TOKEN", ""), "Jeton URL Scheme Things (Réglages > Général)")
 
 	root.AddCommand(
 		newBackupCmd(),
@@ -70,6 +74,7 @@ qui modifie des données.`,
 		newProjectsCmd(),
 		newTasksCmd(),
 		newSearchCmd(),
+		newShowTaskCmd(),
 		newAddTaskCmd(),
 		newAddProjectCmd(),
 		newAddListCmd(),
@@ -82,6 +87,12 @@ qui modifie des données.`,
 		newCompleteTaskCmd(),
 		newUncompleteTaskCmd(),
 		newSetTagsCmd(),
+		newSetTaskTagsCmd(),
+		newAddTaskTagsCmd(),
+		newRemoveTaskTagsCmd(),
+		newSetTaskNotesCmd(),
+		newAppendTaskNotesCmd(),
+		newSetTaskDateCmd(),
 		newListSubtasksCmd(),
 		newAddSubtaskCmd(),
 		newEditSubtaskCmd(),
@@ -116,9 +127,10 @@ func resolveRuntimeConfig(ctx context.Context) (*runtimeConfig, error) {
 	}
 
 	return &runtimeConfig{
-		bundleID: config.bundleID,
-		dataDir:  dataDir,
-		runner:   r,
+		bundleID:  config.bundleID,
+		dataDir:   dataDir,
+		authToken: strings.TrimSpace(config.authToken),
+		runner:    r,
 	}, nil
 }
 
@@ -313,6 +325,31 @@ func newSearchCmd() *cobra.Command {
 	return cmd
 }
 
+func newShowTaskCmd() *cobra.Command {
+	var name string
+	var withSubtasks bool
+	cmd := &cobra.Command{
+		Use:   "show-task",
+		Short: "Afficher le détail complet d'une tâche ou d'un projet",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			name = strings.TrimSpace(name)
+			if name == "" {
+				return errors.New("--name est requis")
+			}
+			return runResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, withSubtasks))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche ou du projet")
+	cmd.Flags().BoolVar(&withSubtasks, "with-subtasks", true, "Inclure les sous-tâches")
+	_ = cmd.MarkFlagRequired("name")
+	return cmd
+}
+
 func newAddTaskCmd() *cobra.Command {
 	var name, notes, tags, listName, due, subtasks string
 	cmd := &cobra.Command{
@@ -335,7 +372,25 @@ func newAddTaskCmd() *cobra.Command {
 				return err
 			}
 			subtasksList := parseCSVList(subtasks)
-			return runResult(ctx, cfg, scriptAddTask(cfg.bundleID, strings.TrimSpace(listName), name, notes, tags, dueDate, subtasksList))
+			out, err := cfg.runner.run(ctx, scriptAddTask(cfg.bundleID, strings.TrimSpace(listName), name, notes, tags, dueDate))
+			if err != nil {
+				return err
+			}
+			taskID := strings.TrimSpace(out)
+			if taskID == "" {
+				return errors.New("impossible de récupérer l'id de la tâche créée")
+			}
+			if len(subtasksList) > 0 {
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				if err := runResult(ctx, cfg, scriptSetChecklistByID(cfg.bundleID, taskID, subtasksList, token)); err != nil {
+					return err
+				}
+			}
+			fmt.Println(taskID)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
@@ -629,7 +684,7 @@ func newSetTagsCmd() *cobra.Command {
 	var name, tags string
 	cmd := &cobra.Command{
 		Use:   "set-tags",
-		Short: "Définir les tags d'une tâche",
+		Short: "Définir les tags d'une tâche ou d'un projet",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -643,10 +698,9 @@ func newSetTagsCmd() *cobra.Command {
 				return err
 			}
 			script := fmt.Sprintf(`tell application id "%s"
-  set t to first «class tstk» whose name is "%s"
-  set tag names of t to "%s"
+%s  set tag names of t to "%s"
   return id of t
-end tell`, cfg.bundleID, escapeApple(name), escapeApple(tags))
+end tell`, cfg.bundleID, scriptResolveTaskByName(name), escapeApple(tags))
 			return runResult(ctx, cfg, script)
 		},
 	}
@@ -654,6 +708,200 @@ end tell`, cfg.bundleID, escapeApple(name), escapeApple(tags))
 	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
+	return cmd
+}
+
+func newSetTaskTagsCmd() *cobra.Command {
+	var name, tags string
+	cmd := &cobra.Command{
+		Use:   "set-task-tags",
+		Short: "Définir exactement les tags d'une tâche",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
+				return errors.New("--name et --tags sont requis")
+			}
+			tagList := parseCSVList(tags)
+			if len(tagList) == 0 {
+				return errors.New("préciser au moins un tag dans --tags")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptSetTaskTags(cfg.bundleID, name, tagList))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
+	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("tags")
+	return cmd
+}
+
+func newAddTaskTagsCmd() *cobra.Command {
+	var name, tags string
+	cmd := &cobra.Command{
+		Use:   "add-task-tags",
+		Short: "Ajouter des tags à une tâche (fusion avec les tags existants)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
+				return errors.New("--name et --tags sont requis")
+			}
+			tagList := parseCSVList(tags)
+			if len(tagList) == 0 {
+				return errors.New("préciser au moins un tag dans --tags")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptAddTaskTags(cfg.bundleID, name, tagList))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
+	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("tags")
+	return cmd
+}
+
+func newRemoveTaskTagsCmd() *cobra.Command {
+	var name, tags string
+	cmd := &cobra.Command{
+		Use:   "remove-task-tags",
+		Short: "Supprimer des tags d'une tâche",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
+				return errors.New("--name et --tags sont requis")
+			}
+			tagList := parseCSVList(tags)
+			if len(tagList) == 0 {
+				return errors.New("préciser au moins un tag dans --tags")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptRemoveTaskTags(cfg.bundleID, name, tagList))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&tags, "tags", "", "Tags séparés par virgules")
+	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("tags")
+	return cmd
+}
+
+func newSetTaskNotesCmd() *cobra.Command {
+	var name, notes string
+	cmd := &cobra.Command{
+		Use:   "set-task-notes",
+		Short: "Définir les notes d'une tâche",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(name) == "" {
+				return errors.New("--name est requis")
+			}
+			if strings.TrimSpace(notes) == "" {
+				return errors.New("--notes est requis")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptSetTaskNotes(cfg.bundleID, name, notes))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&notes, "notes", "", "Nouvelles notes")
+	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("notes")
+	return cmd
+}
+
+func newAppendTaskNotesCmd() *cobra.Command {
+	var name, notes, separator string
+	cmd := &cobra.Command{
+		Use:   "append-task-notes",
+		Short: "Ajouter des notes à la fin des notes d'une tâche",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(name) == "" {
+				return errors.New("--name est requis")
+			}
+			if strings.TrimSpace(notes) == "" {
+				return errors.New("--notes est requis")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptAppendTaskNotes(cfg.bundleID, name, notes, separator))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&notes, "notes", "", "Texte à ajouter aux notes")
+	cmd.Flags().StringVar(&separator, "separator", "\n", "Séparateur d'ajout (défaut: saut de ligne)")
+	_ = cmd.MarkFlagRequired("name")
+	_ = cmd.MarkFlagRequired("notes")
+	return cmd
+}
+
+func newSetTaskDateCmd() *cobra.Command {
+	var name, due, deadline string
+	var clear bool
+	cmd := &cobra.Command{
+		Use:   "set-task-date",
+		Short: "Définir/mettre à jour la date d'échéance d'une tâche",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(name) == "" {
+				return errors.New("--name est requis")
+			}
+			dueDate, err := parseToAppleDate(due)
+			if err != nil {
+				return err
+			}
+			deadlineDate, err := parseToAppleDate(deadline)
+			if err != nil {
+				return err
+			}
+			if !clear && dueDate == "" && deadlineDate == "" {
+				return errors.New("fournir --due, --deadline ou --clear")
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, dueDate, deadlineDate, clear))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Nom de la tâche")
+	cmd.Flags().StringVar(&due, "due", "", "Nouvelle échéance (YYYY-MM-DD [HH:mm[:ss]])")
+	cmd.Flags().StringVar(&deadline, "deadline", "", "Alias échéance (même format)")
+	cmd.Flags().BoolVar(&clear, "clear", false, "Effacer la date d'échéance")
+	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
@@ -680,10 +928,10 @@ func newListSubtasksCmd() *cobra.Command {
 }
 
 func newAddSubtaskCmd() *cobra.Command {
-	var taskName, subtaskName, notes string
+	var taskName, subtaskName string
 	cmd := &cobra.Command{
 		Use:   "add-subtask",
-		Short: "Ajouter une sous-tâche à une tâche",
+		Short: "Ajouter un item de checklist native à une tâche",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -698,12 +946,15 @@ func newAddSubtaskCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptAddSubtask(cfg.bundleID, taskName, subtaskName, notes))
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptAppendChecklistByName(cfg.bundleID, taskName, []string{subtaskName}, token))
 		},
 	}
 	cmd.Flags().StringVar(&taskName, "task", "", "Nom de la tâche parent")
 	cmd.Flags().StringVar(&subtaskName, "name", "", "Nom de la sous-tâche")
-	cmd.Flags().StringVar(&notes, "notes", "", "Notes de la sous-tâche")
 	_ = cmd.MarkFlagRequired("task")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
@@ -883,6 +1134,16 @@ func scriptAllLists(bundleID string) string {
 end tell`, bundleID)
 }
 
+func scriptResolveTaskByName(taskName string) string {
+	taskName = escapeApple(taskName)
+	return fmt.Sprintf(`  try
+    set t to first project whose name is "%s"
+  on error
+    set t to first «class tstk» whose name is "%s"
+  end try
+`, taskName, taskName)
+}
+
 func scriptAllProjects(bundleID string) string {
 	return fmt.Sprintf(`tell application id "%s"
   get name of projects
@@ -920,7 +1181,7 @@ func scriptSearch(bundleID, listName, query string) string {
 	return scriptTasks(bundleID, listName, query)
 }
 
-func scriptAddTask(bundleID, listName, name, notes, tags, due string, subtasks []string) string {
+func scriptAddTask(bundleID, listName, name, notes, tags, due string) string {
 	if strings.TrimSpace(listName) == "" {
 		listName = defaultListName
 	}
@@ -933,25 +1194,45 @@ func scriptAddTask(bundleID, listName, name, notes, tags, due string, subtasks [
 	}
 	script := fmt.Sprintf(`tell application id "%s"
   set targetList to first list whose name is "%s"
-  set t to make new «class tstk» at end of tasks of targetList with properties {%s}
+  set t to make new «class tstk» at end of to dos of targetList with properties {%s}
 `, bundleID, escapeApple(listName), strings.Join(parts, ", "))
 	if strings.TrimSpace(due) != "" {
 		script += fmt.Sprintf(`  set due date of t to date "%s"
 `, due)
 	}
-	if len(subtasks) > 0 {
-		for _, sub := range subtasks {
-			sub = strings.TrimSpace(sub)
-			if sub == "" {
-				continue
-			}
-			script += fmt.Sprintf(`  make new to do at end of to dos of t with properties {name:"%s"}
-`, escapeApple(sub))
-		}
-	}
 	script += `  return id of t
 end tell`
 	return script
+}
+
+func requireAuthToken(cfg *runtimeConfig) (string, error) {
+	token := strings.TrimSpace(cfg.authToken)
+	if token == "" {
+		return "", errors.New("auth-token requis pour la checklist native (Things > Réglages > Général). Utilise --auth-token ou THINGS_AUTH_TOKEN")
+	}
+	return token, nil
+}
+
+func urlEncodeChecklist(items []string) string {
+	return url.QueryEscape(strings.Join(items, "\n"))
+}
+
+func scriptSetChecklistByID(bundleID, taskID string, items []string, authToken string) string {
+	return fmt.Sprintf(`tell application id "%s"
+  set t to first to do whose id is "%s"
+  set tid to id of t
+end tell
+open location "things:///update?auth-token=%s&id=" & tid & "&checklist-items=%s"
+return tid`, bundleID, escapeApple(taskID), escapeApple(url.QueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
+}
+
+func scriptAppendChecklistByName(bundleID, taskName string, items []string, authToken string) string {
+	return fmt.Sprintf(`tell application id "%s"
+  set t to first to do whose name is "%s"
+  set tid to id of t
+end tell
+open location "things:///update?auth-token=%s&id=" & tid & "&append-checklist-items=%s"
+return tid`, bundleID, escapeApple(taskName), escapeApple(url.QueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
 }
 
 func parseCSVList(value string) []string {
@@ -967,13 +1248,24 @@ func parseCSVList(value string) []string {
 	return out
 }
 
+func scriptListLiteral(values []string) string {
+	if len(values) == 0 {
+		return "{}"
+	}
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		items = append(items, fmt.Sprintf(`"%s"`, escapeApple(value)))
+	}
+	return "{" + strings.Join(items, ", ") + "}"
+}
+
 func scriptAddProject(bundleID, listName, name, notes string) string {
 	if strings.TrimSpace(listName) == "" {
 		listName = defaultListName
 	}
 	script := fmt.Sprintf(`tell application id "%s"
   set targetList to first list whose name is "%s"
-  set p to make new project at end of tasks of targetList with properties {name:"%s"}
+  set p to make new project at end of to dos of targetList with properties {name:"%s"}
 `, bundleID, escapeApple(listName), escapeApple(name))
 	if strings.TrimSpace(notes) != "" {
 		script += fmt.Sprintf(`  set notes of p to "%s"
@@ -989,8 +1281,7 @@ func scriptEditTask(bundleID, source, newName, notes, tags, moveTo, due, complet
 		return "", errors.New("source name required")
 	}
 	script := fmt.Sprintf(`tell application id "%s"
-  set t to first «class tstk» whose name is "%s"
-`, bundleID, escapeApple(source))
+%s`, bundleID, scriptResolveTaskByName(source))
 	if strings.TrimSpace(newName) != "" {
 		script += fmt.Sprintf(`  set name of t to "%s"
 `, escapeApple(newName))
@@ -1004,7 +1295,7 @@ func scriptEditTask(bundleID, source, newName, notes, tags, moveTo, due, complet
 `, escapeApple(tags))
 	}
 	if strings.TrimSpace(moveTo) != "" {
-		script += fmt.Sprintf(`  move t to end of tasks of (first list whose name is "%s")
+	script += fmt.Sprintf(`  move t to end of to dos of (first list whose name is "%s")
 `, escapeApple(moveTo))
 	}
 	if strings.TrimSpace(due) != "" {
@@ -1045,41 +1336,134 @@ end tell`
 	return script
 }
 
+func scriptSetTaskNotes(bundleID, taskName, notes string) string {
+	return fmt.Sprintf(`tell application id "%s"
+%s  set notes of t to "%s"
+  return id of t
+end tell`, bundleID, scriptResolveTaskByName(taskName), escapeApple(notes))
+}
+
+func scriptAppendTaskNotes(bundleID, taskName, notes, separator string) string {
+	if strings.TrimSpace(separator) == "" {
+		separator = "\n"
+	}
+	return fmt.Sprintf(`tell application id "%s"
+%s  if (notes of t is missing value) or (notes of t is "") then
+    set notes of t to "%s"
+  else
+    set notes of t to (notes of t & "%s" & "%s")
+  end if
+  return id of t
+end tell`, bundleID, scriptResolveTaskByName(taskName), escapeApple(notes), escapeApple(separator), escapeApple(notes))
+}
+
+func scriptSetTaskDate(bundleID, taskName, dueDate, deadlineDate string, clear bool) string {
+	script := fmt.Sprintf(`tell application id "%s"
+%s`, bundleID, scriptResolveTaskByName(taskName))
+	if clear {
+		script += `  set due date of t to missing value
+`
+	}
+	if strings.TrimSpace(dueDate) != "" {
+		script += fmt.Sprintf(`  set due date of t to date "%s"
+`, dueDate)
+	}
+	if strings.TrimSpace(deadlineDate) != "" {
+		script += fmt.Sprintf(`  set due date of t to date "%s"
+`, deadlineDate)
+	}
+	script += `  return id of t
+end tell`
+	return script
+}
+
+func scriptSetTaskTags(bundleID, taskName string, tags []string) string {
+	return fmt.Sprintf(`tell application id "%s"
+%s  set tag names of t to %s
+  return id of t
+end tell`, bundleID, scriptResolveTaskByName(taskName), scriptListLiteral(tags))
+}
+
+func scriptAddTaskTags(bundleID, taskName string, tags []string) string {
+	return fmt.Sprintf(`tell application id "%s"
+%s  set existingTags to {}
+  try
+    set existingTags to tag names of t
+  end try
+  if existingTags is missing value then
+    set existingTags to {}
+  end if
+  repeat with aTag in %s
+    if not (aTag is in existingTags) then
+      set end of existingTags to (aTag as string)
+    end if
+  end repeat
+  set tag names of t to existingTags
+  return id of t
+end tell`, bundleID, scriptResolveTaskByName(taskName), scriptListLiteral(tags))
+}
+
+func scriptRemoveTaskTags(bundleID, taskName string, tags []string) string {
+	return fmt.Sprintf(`tell application id "%s"
+%s  set existingTags to {}
+  try
+    set existingTags to tag names of t
+  end try
+  if existingTags is missing value then
+    set existingTags to {}
+  end if
+  set filteredTags to {}
+  repeat with aTag in existingTags
+    if not (aTag is in %s) then
+      set end of filteredTags to aTag
+    end if
+  end repeat
+  set tag names of t to filteredTags
+  return id of t
+end tell`, bundleID, scriptResolveTaskByName(taskName), scriptListLiteral(tags))
+}
+
 func scriptListSubtasks(bundleID, taskName string) string {
 	taskName = strings.TrimSpace(taskName)
 	return fmt.Sprintf(`tell application id "%s"
-  set t to first «class tstk» whose name is "%s"
-  set subtasks to to dos of t
-  set out to ""
-  repeat with i from 1 to count subtasks
-    set s to item i of subtasks
-    set outLine to (i as string) & ". " & name of s
-    if (notes of s is not missing value) and (notes of s is not "") then
-      set outLine to outLine & " | " & notes of s
-    end if
+%s  try
+    set subtasks to to dos of t
+    set out to ""
+    repeat with i from 1 to count subtasks
+      set s to item i of subtasks
+      set outLine to (i as string) & ". " & (name of s)
+      if (notes of s is not missing value) and (notes of s is not "") then
+        set outLine to outLine & " | " & (notes of s)
+      end if
+      if out is "" then
+        set out to outLine
+      else
+        set out to out & linefeed & outLine
+      end if
+    end repeat
     if out is "" then
-      set out to outLine
-    else
-      set out to out & linefeed & outLine
+      return "Aucune sous-tâche"
     end if
-  end repeat
-  if out is "" then
+    return out
+  on error
     return "Aucune sous-tâche"
-  end if
-  return out
-end tell`, bundleID, escapeApple(taskName))
+  end try
+end tell`, bundleID, scriptResolveTaskByName(taskName))
 }
 
 func scriptAddSubtask(bundleID, taskName, subtaskName, notes string) string {
 	script := fmt.Sprintf(`tell application id "%s"
-  set t to first «class tstk» whose name is "%s"
-  set s to make new to do at end of to dos of t with properties {name:"%s"}
-`, bundleID, escapeApple(taskName), escapeApple(subtaskName))
+%s  try
+    set s to make new to do at end of to dos of t with properties {name:"%s"}
+`, bundleID, scriptResolveTaskByName(taskName), escapeApple(subtaskName))
 	if strings.TrimSpace(notes) != "" {
 		script += fmt.Sprintf(`  set notes of s to "%s"
 `, escapeApple(notes))
 	}
 	script += `  return id of s
+  on error
+    error "Impossible d'ajouter une sous-tâche à cet élément."
+  end try
 end tell`
 	return script
 }
@@ -1094,9 +1478,83 @@ func scriptFindSubtask(bundleID, taskName, subtaskName string, index int) string
 		target = fmt.Sprintf(`first to do of to dos of t whose name is "%s"`, escapeApple(subtaskName))
 	}
 	return fmt.Sprintf(`tell application id "%s"
-  set t to first «class tstk» whose name is "%s"
-  set s to %s
-`, bundleID, escapeApple(taskName), target)
+%s  try
+    set s to %s
+  on error
+    error "Aucune sous-tâche trouvée sur cet élément."
+  end try
+`, bundleID, scriptResolveTaskByName(taskName), target)
+}
+
+func scriptShowTask(bundleID, taskName string, withSubtasks bool) string {
+	subtasksBlock := "false"
+	if withSubtasks {
+		subtasksBlock = "true"
+	}
+	return fmt.Sprintf(`tell application id "%s"
+%s  set out to "ID: " & (id of t)
+  set out to out & linefeed & "Nom: " & (name of t)
+  set out to out & linefeed & "Type: " & (class of t as string)
+  set out to out & linefeed & "Statut: " & (status of t as string)
+  if due date of t is not missing value then
+    set out to out & linefeed & "Échéance: " & (due date of t as string)
+  else
+    set out to out & linefeed & "Échéance: "
+  end if
+  if completion date of t is not missing value then
+    set out to out & linefeed & "Terminée le: " & (completion date of t as string)
+  else
+    set out to out & linefeed & "Terminée le: "
+  end if
+  if creation date of t is not missing value then
+    set out to out & linefeed & "Créée le: " & (creation date of t as string)
+  else
+    set out to out & linefeed & "Créée le: "
+  end if
+  set tagText to ""
+  try
+    set taskTags to tag names of t
+    repeat with i from 1 to count taskTags
+      set tagLine to item i of taskTags
+      if tagText is "" then
+        set tagText to tagLine
+      else
+        set tagText to tagText & ", " & tagLine
+      end if
+    end repeat
+  end try
+  set out to out & linefeed & "Tags: " & tagText
+  if notes of t is missing value then
+    set out to out & linefeed & "Notes: "
+  else
+    set out to out & linefeed & "Notes: " & (notes of t)
+  end if
+  if %s then
+    try
+      set subtasks to to dos of t
+      set subtaskLines to "Aucune sous-tâche"
+      if (count subtasks) > 0 then
+        set subtaskLines to ""
+        repeat with i from 1 to count subtasks
+          set s to item i of subtasks
+          set lineItem to (i as string) & ". " & (name of s) & " [" & (status of s as string) & "]"
+          if (notes of s is not missing value) and (notes of s is not "") then
+            set lineItem to lineItem & " | " & (notes of s)
+          end if
+          if subtaskLines is "" then
+            set subtaskLines to lineItem
+          else
+            set subtaskLines to subtaskLines & linefeed & lineItem
+          end if
+        end repeat
+      end if
+      set out to out & linefeed & "Sous-tâches:" & linefeed & subtaskLines
+    on error
+      set out to out & linefeed & "Sous-tâches: non supportées"
+    end try
+  end if
+  return out
+end tell`, bundleID, scriptResolveTaskByName(taskName), subtasksBlock)
 }
 
 func scriptEditSubtask(bundleID, taskName, subtaskName string, index int, newName, notes string) string {
@@ -1329,7 +1787,7 @@ func parseToAppleDate(value string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return t.Format("January 2, 2006 at 15:04:05"), nil
+	return t.Format("2006-01-02 15:04:05"), nil
 }
 
 func parseDate(v string) (time.Time, error) {
