@@ -12,15 +12,19 @@ import (
 )
 
 func runThingsURL(ctx context.Context, cfg *runtimeConfig, command string, params map[string]string) error {
+	thingsURL := "things:///" + command
+	if encoded := encodeThingsURLParams(params); encoded != "" {
+		thingsURL += "?" + encoded
+	}
+	return runResult(ctx, cfg, scriptOpenURL(thingsURL))
+}
+
+func encodeThingsURLParams(params map[string]string) string {
 	values := url.Values{}
 	for k, v := range params {
 		values.Set(k, v)
 	}
-	thingsURL := "things:///" + command
-	if encoded := values.Encode(); encoded != "" {
-		thingsURL += "?" + encoded
-	}
-	return runResult(ctx, cfg, scriptOpenURL(thingsURL))
+	return strings.ReplaceAll(values.Encode(), "+", "%20")
 }
 
 func scriptOpenURL(rawURL string) string {

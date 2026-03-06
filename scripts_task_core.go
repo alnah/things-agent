@@ -40,7 +40,11 @@ func requireAuthToken(cfg *runtimeConfig) (string, error) {
 }
 
 func urlEncodeChecklist(items []string) string {
-	return url.QueryEscape(strings.Join(items, "\n"))
+	return thingsQueryEscape(strings.Join(items, "\n"))
+}
+
+func thingsQueryEscape(value string) string {
+	return strings.ReplaceAll(url.QueryEscape(value), "+", "%20")
 }
 
 func scriptSetChecklistByID(bundleID, taskID string, items []string, authToken string) string {
@@ -49,7 +53,7 @@ func scriptSetChecklistByID(bundleID, taskID string, items []string, authToken s
   set tid to id of t
 end tell
 open location "things:///update?auth-token=%s&id=" & tid & "&checklist-items=%s"
-return tid`, bundleID, escapeApple(taskID), escapeApple(url.QueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
+return tid`, bundleID, escapeApple(taskID), escapeApple(thingsQueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
 }
 
 func scriptAppendChecklistByName(bundleID, taskName string, items []string, authToken string) string {
@@ -58,7 +62,7 @@ func scriptAppendChecklistByName(bundleID, taskName string, items []string, auth
   set tid to id of t
 end tell
 open location "things:///update?auth-token=%s&id=" & tid & "&append-checklist-items=%s"
-return tid`, bundleID, escapeApple(taskName), escapeApple(url.QueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
+return tid`, bundleID, escapeApple(taskName), escapeApple(thingsQueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
 }
 
 func parseCSVList(value string) []string {
@@ -208,5 +212,5 @@ func scriptClearTaskDeadlineByName(bundleID, taskName, authToken string) string 
 %s  set tid to id of t
 end tell
 open location "things:///update?auth-token=%s&id=" & tid & "&deadline="
-return tid`, bundleID, scriptResolveTaskByName(taskName), escapeApple(url.QueryEscape(authToken)))
+return tid`, bundleID, scriptResolveTaskByName(taskName), escapeApple(thingsQueryEscape(authToken)))
 }
