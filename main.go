@@ -47,7 +47,7 @@ func main() {
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:           "things",
+		Use:           "agent-things",
 		SilenceErrors: false,
 		SilenceUsage:  true,
 		Short:         "CLI Things via AppleScript (aucun accès direct à la base)",
