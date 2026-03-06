@@ -16,7 +16,7 @@ func runThingsURL(ctx context.Context, cfg *runtimeConfig, command string, param
 	if encoded := encodeThingsURLParams(params); encoded != "" {
 		thingsURL += "?" + encoded
 	}
-	return runResult(ctx, cfg, scriptOpenURL(thingsURL))
+	return runResult(ctx, cfg, scriptOpenURL(cfg.bundleID, thingsURL))
 }
 
 func encodeThingsURLParams(params map[string]string) string {
@@ -27,9 +27,11 @@ func encodeThingsURLParams(params map[string]string) string {
 	return strings.ReplaceAll(values.Encode(), "+", "%20")
 }
 
-func scriptOpenURL(rawURL string) string {
-	return fmt.Sprintf(`open location "%s"
-return "ok"`, escapeApple(rawURL))
+func scriptOpenURL(bundleID, rawURL string) string {
+	return fmt.Sprintf(`tell application id "%s"
+  open location "%s"
+end tell
+return "ok"`, escapeApple(bundleID), escapeApple(rawURL))
 }
 
 func setIfNotEmpty(params map[string]string, key, value string) {

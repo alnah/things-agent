@@ -7,6 +7,7 @@ import (
 )
 
 func resolveRuntimeConfig(ctx context.Context) (*runtimeConfig, error) {
+	_ = ctx
 	dataDir := strings.TrimSpace(config.dataDir)
 	if dataDir == "" {
 		var err error
@@ -17,9 +18,6 @@ func resolveRuntimeConfig(ctx context.Context) (*runtimeConfig, error) {
 	}
 
 	r := newRunner(config.bundleID)
-	if err := r.ensureReachable(ctx); err != nil {
-		return nil, err
-	}
 
 	return &runtimeConfig{
 		bundleID:  config.bundleID,
