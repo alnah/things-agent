@@ -1,4 +1,4 @@
-module github.com/local/agent-things
+module github.com/local/things-agent
 
 go 1.26.0
 
