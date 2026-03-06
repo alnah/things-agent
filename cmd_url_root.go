@@ -15,6 +15,7 @@ func newURLCmd() *cobra.Command {
 		newURLShowCmd(),
 		newURLSearchCmd(),
 		newURLVersionCmd(),
+		newURLJSONCmd(),
 		newURLAddJSONCmd(),
 	)
 	return cmd

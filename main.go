@@ -63,9 +63,6 @@ before each write action.`,
 		dataDirDefault = envOrDefault("THINGS_DATA_DIR", "")
 	}
 	authTokenDefault := strings.TrimSpace(config.authToken)
-	if authTokenDefault == "" {
-		authTokenDefault = envOrDefault("THINGS_AUTH_TOKEN", "")
-	}
 
 	root.PersistentFlags().StringVar(&config.bundleID, "bundle-id", bundleIDDefault, "Things app bundle id")
 	root.PersistentFlags().StringVar(&config.dataDir, "data-dir", dataDirDefault, "Things database path")

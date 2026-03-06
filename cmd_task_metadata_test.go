@@ -138,6 +138,7 @@ func TestTaskMetadataCommands(t *testing.T) {
 	t.Run("clear date requires token", func(t *testing.T) {
 		fr := &fakeRunner{}
 		setupTestRuntimeWithDB(t, fr)
+		t.Setenv("THINGS_AUTH_TOKEN", "")
 		config.authToken = ""
 		cmd := newSetTaskDateCmd()
 		cmd.SetArgs([]string{"--name", "task-a", "--clear"})

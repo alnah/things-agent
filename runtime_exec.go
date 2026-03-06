@@ -17,12 +17,17 @@ func resolveRuntimeConfig(ctx context.Context) (*runtimeConfig, error) {
 		}
 	}
 
+	authToken := strings.TrimSpace(config.authToken)
+	if authToken == "" {
+		authToken = envOrDefault("THINGS_AUTH_TOKEN", "")
+	}
+
 	r := newRuntimeRunner(config.bundleID)
 
 	return &runtimeConfig{
 		bundleID:  config.bundleID,
 		dataDir:   dataDir,
-		authToken: strings.TrimSpace(config.authToken),
+		authToken: authToken,
 		runner:    r,
 	}, nil
 }

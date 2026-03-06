@@ -20,18 +20,17 @@ func TestURLUpdateRequiresID(t *testing.T) {
 	}
 }
 
-func TestURLSearchRequiresQuery(t *testing.T) {
-
+func TestURLSearchAllowsMissingQuery(t *testing.T) {
 	fr := &fakeRunner{}
 	setupTestRuntime(t, t.TempDir(), fr)
 
 	cmd := newURLSearchCmd()
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error for missing --query")
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected missing --query to be allowed: %v", err)
 	}
-	if !strings.Contains(err.Error(), "required flag(s) \"query\" not set") {
-		t.Fatalf("unexpected error: %v", err)
+	scripts := strings.Join(fr.allScripts(), "\n")
+	if !strings.Contains(scripts, `open location "things:///search"`) {
+		t.Fatalf("expected bare search URL, got %s", scripts)
 	}
 }
 
@@ -41,12 +40,12 @@ func TestURLSearchRejectsBlankQuery(t *testing.T) {
 
 	cmd := newURLSearchCmd()
 	cmd.SetArgs([]string{"--query", "   "})
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("expected error for blank --query")
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected blank --query to be treated as empty search: %v", err)
 	}
-	if !strings.Contains(err.Error(), "--query is required") {
-		t.Fatalf("unexpected error: %v", err)
+	scripts := strings.Join(fr.allScripts(), "\n")
+	if !strings.Contains(scripts, `open location "things:///search"`) {
+		t.Fatalf("expected bare search URL, got %s", scripts)
 	}
 }
 

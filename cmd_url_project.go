@@ -12,6 +12,7 @@ func newURLAddProjectCmd() *cobra.Command {
 		title, notes, when, deadline, tags, area, areaID, todos, creationDate, completionDate string
 		completed, canceled, reveal                                                           bool
 	)
+	var callbacks urlCallbackFlags
 	cmd := &cobra.Command{
 		Use:   "add-project",
 		Short: "things:///add-project",
@@ -38,6 +39,7 @@ func newURLAddProjectCmd() *cobra.Command {
 			setBoolIfChanged(cmd, params, "completed", completed)
 			setBoolIfChanged(cmd, params, "canceled", canceled)
 			setBoolIfChanged(cmd, params, "reveal", reveal)
+			callbacks.apply(params)
 			return runThingsURL(ctx, cfg, "add-project", params)
 		},
 	}
@@ -54,6 +56,7 @@ func newURLAddProjectCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&completed, "completed", false, "Create as completed")
 	cmd.Flags().BoolVar(&canceled, "canceled", false, "Create as canceled")
 	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal project")
+	addURLCallbackFlags(cmd, &callbacks)
 	return cmd
 }
 
@@ -62,6 +65,7 @@ func newURLUpdateProjectCmd() *cobra.Command {
 		id, title, notes, prependNotes, appendNotes, when, deadline, tags, addTags, area, areaID, creationDate, completionDate string
 		completed, canceled, reveal, duplicate                                                                                 bool
 	)
+	var callbacks urlCallbackFlags
 	cmd := &cobra.Command{
 		Use:   "update-project",
 		Short: "things:///update-project",
@@ -101,6 +105,7 @@ func newURLUpdateProjectCmd() *cobra.Command {
 			setBoolIfChanged(cmd, params, "canceled", canceled)
 			setBoolIfChanged(cmd, params, "reveal", reveal)
 			setBoolIfChanged(cmd, params, "duplicate", duplicate)
+			callbacks.apply(params)
 			return runThingsURL(ctx, cfg, "update-project", params)
 		},
 	}
@@ -121,6 +126,7 @@ func newURLUpdateProjectCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&canceled, "canceled", false, "Set canceled")
 	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal project")
 	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Duplicate before update")
+	addURLCallbackFlags(cmd, &callbacks)
 	_ = cmd.MarkFlagRequired("id")
 	return cmd
 }

@@ -12,6 +12,7 @@ func newURLAddCmd() *cobra.Command {
 		title, notes, when, deadline, tags, checklistItems, listName, listID, heading, headingID, notesTemplate string
 		completed, canceled, reveal                                                                             bool
 	)
+	var callbacks urlCallbackFlags
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "things:///add",
@@ -39,6 +40,7 @@ func newURLAddCmd() *cobra.Command {
 			setBoolIfChanged(cmd, params, "completed", completed)
 			setBoolIfChanged(cmd, params, "canceled", canceled)
 			setBoolIfChanged(cmd, params, "reveal", reveal)
+			callbacks.apply(params)
 			return runThingsURL(ctx, cfg, "add", params)
 		},
 	}
@@ -56,6 +58,7 @@ func newURLAddCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&completed, "completed", false, "Create as completed")
 	cmd.Flags().BoolVar(&canceled, "canceled", false, "Create as canceled")
 	cmd.Flags().BoolVar(&reveal, "reveal", false, "Reveal after creation")
+	addURLCallbackFlags(cmd, &callbacks)
 	return cmd
 }
 
@@ -66,6 +69,7 @@ func newURLUpdateCmd() *cobra.Command {
 		completed, canceled, reveal, duplicate                                                                                        bool
 		creationDate, completionDate                                                                                                  string
 	)
+	var callbacks urlCallbackFlags
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "things:///update",
@@ -110,6 +114,7 @@ func newURLUpdateCmd() *cobra.Command {
 			setBoolIfChanged(cmd, params, "duplicate", duplicate)
 			setIfChanged(cmd, params, "creation-date", creationDate)
 			setIfChanged(cmd, params, "completion-date", completionDate)
+			callbacks.apply(params)
 			return runThingsURL(ctx, cfg, "update", params)
 		},
 	}
@@ -135,6 +140,7 @@ func newURLUpdateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&duplicate, "duplicate", false, "Duplicate before update")
 	cmd.Flags().StringVar(&creationDate, "creation-date", "", "Creation date ISO8601")
 	cmd.Flags().StringVar(&completionDate, "completion-date", "", "Completion date ISO8601")
+	addURLCallbackFlags(cmd, &callbacks)
 	_ = cmd.MarkFlagRequired("id")
 	return cmd
 }

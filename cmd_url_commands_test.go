@@ -92,7 +92,7 @@ func TestURLCommandsExecute(t *testing.T) {
 		}
 
 		search := newURLSearchCmd()
-		search.SetArgs([]string{"--query", "task"})
+		search.SetArgs([]string{"--query", "task", "--x-success", "raycast://done"})
 		if err := search.Execute(); err != nil {
 			t.Fatalf("url search failed: %v", err)
 		}
@@ -102,10 +102,10 @@ func TestURLCommandsExecute(t *testing.T) {
 			t.Fatalf("url version failed: %v", err)
 		}
 
-		addJSON := newURLAddJSONCmd()
-		addJSON.SetArgs([]string{"--data", `{"items":[{"title":"x"}]}`, "--reveal"})
-		if err := addJSON.Execute(); err != nil {
-			t.Fatalf("url add-json failed: %v", err)
+		jsonCmd := newURLJSONCmd()
+		jsonCmd.SetArgs([]string{"--data", `{"items":[{"title":"x"}]}`, "--reveal", "--x-source", "codex"})
+		if err := jsonCmd.Execute(); err != nil {
+			t.Fatalf("url json failed: %v", err)
 		}
 
 		addJSONUpdate := newURLAddJSONCmd()
@@ -116,7 +116,9 @@ func TestURLCommandsExecute(t *testing.T) {
 
 		scripts := strings.Join(fr.allScripts(), "\n")
 		if !strings.Contains(scripts, "things:///show?") || !strings.Contains(scripts, "things:///search?") ||
-			!strings.Contains(scripts, "things:///version") || !strings.Contains(scripts, "things:///add-json?") {
+			!strings.Contains(scripts, "x-success=raycast%3A%2F%2Fdone") ||
+			!strings.Contains(scripts, "things:///version") || !strings.Contains(scripts, "things:///json?") ||
+			!strings.Contains(scripts, "x-source=codex") {
 			t.Fatalf("unexpected URL scripts: %s", scripts)
 		}
 	})
@@ -124,12 +126,33 @@ func TestURLCommandsExecute(t *testing.T) {
 	t.Run("url add-json update requires token", func(t *testing.T) {
 		fr := &fakeRunner{output: "ok"}
 		setupTestRuntimeWithDB(t, fr)
+		t.Setenv("THINGS_AUTH_TOKEN", "")
 		config.authToken = ""
 		cmd := newURLAddJSONCmd()
 		cmd.SetArgs([]string{"--data", `{"operation":"update","items":[]}`})
 		err := cmd.Execute()
 		if err == nil || !strings.Contains(err.Error(), "auth-token is required") {
 			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("url json detects update structurally", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntimeWithDB(t, fr)
+
+		nonUpdate := newURLJSONCmd()
+		nonUpdate.SetArgs([]string{"--data", `{"items":[{"title":"operation:update"}]}`})
+		if err := nonUpdate.Execute(); err != nil {
+			t.Fatalf("expected nested string not to trigger token requirement: %v", err)
+		}
+
+		t.Setenv("THINGS_AUTH_TOKEN", "")
+		config.authToken = ""
+		update := newURLJSONCmd()
+		update.SetArgs([]string{"--data", "{\n  \"operation\": \"update\",\n  \"items\": []\n}"})
+		err := update.Execute()
+		if err == nil || !strings.Contains(err.Error(), "auth-token is required") {
+			t.Fatalf("expected structural update to require token, got %v", err)
 		}
 	})
 }

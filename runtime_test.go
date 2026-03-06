@@ -87,3 +87,21 @@ func TestResolveRuntimeConfigAutoResolveAndError(t *testing.T) {
 		t.Fatalf("unexpected auto-resolved dir: %s", cfg.dataDir)
 	}
 }
+
+func TestResolveRuntimeConfigLoadsAuthTokenFromEnvWhenUnset(t *testing.T) {
+	t.Setenv("THINGS_AUTH_TOKEN", "env-token")
+
+	orig := config
+	config.dataDir = t.TempDir()
+	config.bundleID = defaultBundleID
+	config.authToken = "   "
+	t.Cleanup(func() { config = orig })
+
+	cfg, err := resolveRuntimeConfig(context.Background())
+	if err != nil {
+		t.Fatalf("resolveRuntimeConfig failed: %v", err)
+	}
+	if cfg.authToken != "env-token" {
+		t.Fatalf("expected env token, got %q", cfg.authToken)
+	}
+}

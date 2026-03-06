@@ -111,6 +111,7 @@ func TestSubtaskCommands(t *testing.T) {
 
 		addMissingToken := newAddSubtaskCmd()
 		setupTestRuntimeWithDB(t, fr)
+		t.Setenv("THINGS_AUTH_TOKEN", "")
 		config.authToken = ""
 		addMissingToken.SetArgs([]string{"--task", "task-a", "--name", "sub"})
 		err = addMissingToken.Execute()
