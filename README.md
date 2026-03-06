@@ -22,24 +22,6 @@ This repository started as a fast prototype built in one day with Codex (`gpt-5.
 The project is validated for Codex and Claude Code today.
 It should also be usable from other local-agent setups (for example Cline), but those integrations have not been fully validated yet.
 
-For Claude Code, the convention is to read instructions from `CLAUDE.md`, while this project keeps `AGENTS.md` as the source of truth. The recommended setup is to create a symlink so both tools read exactly the same instructions:
-
-```bash
-ln -sf AGENTS.md CLAUDE.md
-```
-
-## AI Agent Usage
-
-This repository is intended to work with both Codex and Claude Code.
-
-- Codex reads `AGENTS.md` directly.
-- Claude Code uses `CLAUDE.md`.
-- Keep a single source of truth by symlinking:
-
-```bash
-ln -sf AGENTS.md CLAUDE.md
-```
-
 ## Prerequisites
 
 - macOS
@@ -48,21 +30,8 @@ ln -sf AGENTS.md CLAUDE.md
 
 The CLI never accesses the Things SQLite database directly.
 Some native checklist operations (URL scheme `update`) require a Things auth token (`THINGS_AUTH_TOKEN` or `--auth-token`).
-Default target list is `Inbox` (English Things UI).
-List names are localized by Things, so use the exact name from your own app language.
-
-Examples:
-
-- English UI: `Inbox`
-- French UI: `À classer`
-
-If your Things language is not English, set:
-
-```bash
-export THINGS_DEFAULT_LIST="À classer"
-```
-
-Or pass `--list` explicitly on each command.
+List names are localized by Things, so use exact names from your own app language.
+For token, permissions, and list-locale errors, see [Troubleshooting](#troubleshooting).
 
 ## Installation
 
@@ -85,15 +54,6 @@ Releases are built from `v*` tags with GoReleaser.
 - `ci.yml` runs unit tests on each push/PR.
 - It also runs mocked integration tests (`-tags=integration`) without direct DB access.
 - Coverage is uploaded to Codecov from CI.
-
-## Hybrid setup for AI agents required
-
-For this project, installation is intentionally hybrid:
-
-- `go install` gives you the executable.
-- `git clone` gives your AI agent the repository context (`AGENTS.md`, docs, workflows, security constraints).
-
-Using only one of the two is not enough for the intended Codex/Claude workflow.
 
 ## Security warning read before use
 
@@ -187,7 +147,7 @@ things-agent url update --id "<todo-id>" --append-checklist-items "one, two" --a
 
 ## Troubleshooting
 
-### Permissions (macOS)
+### Permissions
 
 If AppleScript calls fail or the CLI cannot control Things, validate the environment first:
 
