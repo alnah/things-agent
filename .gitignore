@@ -1,0 +1,50 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+._.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Go
+/bin
+/tmp
+*.test
+*.out
+*.prof
+coverage.out
+/vendor
+/things
+/things-go
+*.log
+
+# Build artifacts (par sécurité)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Neovim / Vim swap and temp files
+*.swp
+*.swo
+*.swn
+*.swm
+*~
+Session.vim
+.vimrc
+.exrc
+~*
+
+# Neovim state/cache (si local)
+.netrwhist
+
+# VSCode
+.vscode/
+.vscode-test/
+
+# Editor / env temps
+.idea/
