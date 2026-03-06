@@ -21,6 +21,7 @@ This file defines operating rules for the **things-agent** repository (Things 3 
 - No bypass allowed via ad hoc AppleScript, manual URL Scheme calls, UI automation, or any direct call outside the CLI.
 - If a feature is missing in the CLI (for example, emptying trash), the agent must propose adding it to the CLI, **not** bypassing it.
 - If the agent wants to perform any Things-related command outside the CLI, it must **always ask the user first** and wait for explicit approval before executing.
+- The agent may have broad system permissions, but for Things operations it is **formally forbidden** to perform any action outside the CLI.
 
 ## General CLI Behavior
 
@@ -132,5 +133,6 @@ The agent should treat this table as the current command surface of the CLI.
   1. backup
   2. read/write action(s)
   3. verification
+- After each requested action, the agent must always verify that the action was performed correctly and report the result.
 - Document IDs returned by Things and expected effects.
 - If AppleScript command support is unavailable on the machine/CI, explain fallback options clearly, never modify the database manually, and ask the user to decide how to proceed.
