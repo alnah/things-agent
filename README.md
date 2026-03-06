@@ -99,23 +99,20 @@ This reduces accidental exposure, but it is not a perfect guarantee. If an agent
 Use this checklist before running the project with Codex or Claude Code:
 
 ```bash
-# 1) clone repository (AI context + instructions)
 git clone https://github.com/alnah/things-agent.git
 cd things-agent
 
-# 2) install CLI binary
 go install github.com/alnah/things-agent@main
-
-# 3) optional runtime env (example for French Things setup)
+# optional runtime env (example for French Things setup)
 export THINGS_DEFAULT_LIST="À classer"
 
-# 4) required for URL update/checklist operations
+# required for URL update/checklist operations
 export THINGS_AUTH_TOKEN="<your-things-token>"
 
-# 5) keep one instruction source for Codex + Claude Code
+# keep one instruction source for Codex + Claude Code
 ln -sf AGENTS.md CLAUDE.md
 
-# 6) quick health check
+# quick health check
 things-agent version
 things-agent session-start
 ```
