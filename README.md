@@ -57,6 +57,12 @@ agent-things url update --id "<todo-id>" --append-checklist-items "un, deux" --a
 - `set-task-tags`, `add-task-tags`, `remove-task-tags`
 - `version`
 
+### Sécurité (choix personnel)
+
+- La commande de vidage de corbeille Things n'est pas exposée dans ce CLI.
+- C'est un choix volontaire de sécurité pour éviter une suppression définitive de masse par script.
+- Les suppressions restent possibles élément par élément (`delete-task`, `delete-project`, `delete-list`) avec backup préalable.
+
 ### Mapping API URL Scheme
 
 - `agent-things url add`: options de `things:///add` (`title`, `notes`, `when`, `deadline`, `tags`, `checklist-items`, `list`, `list-id`, `heading`, `heading-id`, `completed`, `canceled`, `reveal`, `notes-template`)
