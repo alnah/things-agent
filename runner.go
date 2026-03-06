@@ -7,8 +7,16 @@ import (
 	"strings"
 )
 
+type scriptRunner interface {
+	run(ctx context.Context, script string) (string, error)
+}
+
 type runner struct {
 	bundleID string
+}
+
+var newRuntimeRunner = func(bundleID string) scriptRunner {
+	return newRunner(bundleID)
 }
 
 func newRunner(bundleID string) *runner {

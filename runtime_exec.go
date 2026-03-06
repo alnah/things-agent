@@ -17,7 +17,7 @@ func resolveRuntimeConfig(ctx context.Context) (*runtimeConfig, error) {
 		}
 	}
 
-	r := newRunner(config.bundleID)
+	r := newRuntimeRunner(config.bundleID)
 
 	return &runtimeConfig{
 		bundleID:  config.bundleID,

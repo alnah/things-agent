@@ -29,7 +29,7 @@ type runtimeConfig struct {
 	bundleID  string
 	dataDir   string
 	authToken string
-	runner    *runner
+	runner    scriptRunner
 }
 
 func main() {
