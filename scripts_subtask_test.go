@@ -49,33 +49,38 @@ func TestScriptAddChildTaskOptionallySetsNotes(t *testing.T) {
 }
 
 func TestScriptFindChildTaskByIndexOrName(t *testing.T) {
-	byIndex := scriptFindChildTask("bundle.id", "task", "", "", 2)
+	byIndex := scriptFindChildTask("bundle.id", "task", "", "", "", 2)
 	if !strings.Contains(byIndex, "set childTasks to to dos of t") || !strings.Contains(byIndex, "set s to item 2 of childTasks") {
 		t.Fatalf("expected lookup by index: %s", byIndex)
 	}
 
-	byName := scriptFindChildTask("bundle.id", "task", "", "sub", 0)
+	byName := scriptFindChildTask("bundle.id", "task", "", "sub", "", 0)
 	if !strings.Contains(byName, `if (name of childTaskRef as string) is "sub"`) {
 		t.Fatalf("expected lookup by name: %s", byName)
+	}
+
+	byID := scriptFindChildTask("bundle.id", "", "", "", "child-1", 0)
+	if !strings.Contains(byID, `every to do whose id is "child-1"`) || strings.Contains(byID, "set childTasks to to dos of t") {
+		t.Fatalf("expected direct id lookup without parent traversal: %s", byID)
 	}
 }
 
 func TestScriptChildTaskMutations(t *testing.T) {
-	edit := scriptEditChildTask("bundle.id", "task", "", "sub", 0, "new", "note")
+	edit := scriptEditChildTask("bundle.id", "task", "", "sub", "", 0, "new", "note")
 	if !strings.Contains(edit, `set name of s to "new"`) || !strings.Contains(edit, `set notes of s to "note"`) {
 		t.Fatalf("unexpected edit script: %s", edit)
 	}
 
-	del := scriptDeleteChildTask("bundle.id", "task", "", "sub", 0)
+	del := scriptDeleteChildTask("bundle.id", "task", "", "sub", "", 0)
 	if !strings.Contains(del, "delete s") {
 		t.Fatalf("unexpected delete script: %s", del)
 	}
 
-	complete := scriptSetChildTaskStatus("bundle.id", "task", "", "sub", 0, true)
+	complete := scriptSetChildTaskStatus("bundle.id", "task", "", "sub", "", 0, true)
 	if !strings.Contains(complete, "set status of s to completed") {
 		t.Fatalf("unexpected complete script: %s", complete)
 	}
-	uncomplete := scriptSetChildTaskStatus("bundle.id", "task", "", "sub", 0, false)
+	uncomplete := scriptSetChildTaskStatus("bundle.id", "task", "", "sub", "", 0, false)
 	if !strings.Contains(uncomplete, "set status of s to open") {
 		t.Fatalf("unexpected uncomplete script: %s", uncomplete)
 	}

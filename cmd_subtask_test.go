@@ -85,6 +85,40 @@ func TestChildTaskCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("child task mutation commands support direct id", func(t *testing.T) {
+		fr := &fakeRunner{output: "child-1"}
+		setupTestRuntimeWithDB(t, fr)
+
+		complete := newCompleteChildTaskCmd()
+		complete.SetArgs([]string{"--id", "child-1"})
+		if err := complete.Execute(); err != nil {
+			t.Fatalf("complete-child-task --id failed: %v", err)
+		}
+
+		uncomplete := newUncompleteChildTaskCmd()
+		uncomplete.SetArgs([]string{"--id", "child-1"})
+		if err := uncomplete.Execute(); err != nil {
+			t.Fatalf("uncomplete-child-task --id failed: %v", err)
+		}
+
+		del := newDeleteChildTaskCmd()
+		del.SetArgs([]string{"--id", "child-1"})
+		if err := del.Execute(); err != nil {
+			t.Fatalf("delete-child-task --id failed: %v", err)
+		}
+
+		edit := newEditChildTaskCmd()
+		edit.SetArgs([]string{"--id", "child-1", "--new-name", "child-2"})
+		if err := edit.Execute(); err != nil {
+			t.Fatalf("edit-child-task --id failed: %v", err)
+		}
+
+		scripts := strings.Join(fr.allScripts(), "\n")
+		if !strings.Contains(scripts, `every to do whose id is "child-1"`) {
+			t.Fatalf("expected child-task --id selector in scripts, got %s", scripts)
+		}
+	})
+
 	t.Run("validation branches", func(t *testing.T) {
 		fr := &fakeRunner{}
 		setupTestRuntime(t, t.TempDir(), fr)
@@ -92,14 +126,21 @@ func TestChildTaskCommands(t *testing.T) {
 		edit := newEditChildTaskCmd()
 		edit.SetArgs([]string{"--parent", "task-a"})
 		err := edit.Execute()
-		if err == nil || !strings.Contains(err.Error(), "provide --index (>=1) or --name") {
+		if err == nil || !strings.Contains(err.Error(), "provide --id or --index (>=1) or --name") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		del := newDeleteChildTaskCmd()
 		del.SetArgs([]string{"--parent", "task-a"})
 		err = del.Execute()
-		if err == nil || !strings.Contains(err.Error(), "provide --index (>=1) or --name") {
+		if err == nil || !strings.Contains(err.Error(), "provide --id or --index (>=1) or --name") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		completeNoSelector := newCompleteChildTaskCmd()
+		completeNoSelector.SetArgs([]string{"--parent", "task-a"})
+		err = completeNoSelector.Execute()
+		if err == nil || !strings.Contains(err.Error(), "provide --id or --index (>=1) or --name") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
@@ -129,6 +170,13 @@ func TestChildTaskCommands(t *testing.T) {
 		err = uncompleteBlankTask.Execute()
 		if err == nil || !strings.Contains(err.Error(), "exactly one of --parent or --parent-id") {
 			t.Fatalf("unexpected error: %v", err)
+		}
+
+		completeMixedSelectors := newCompleteChildTaskCmd()
+		completeMixedSelectors.SetArgs([]string{"--id", "child-1", "--parent", "task-a"})
+		err = completeMixedSelectors.Execute()
+		if err == nil || !strings.Contains(err.Error(), "use either --id or a parent selector with --name/--index") {
+			t.Fatalf("unexpected mixed selector error: %v", err)
 		}
 
 		listMissingSelector := newListChildTasksCmd()

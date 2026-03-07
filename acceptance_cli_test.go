@@ -306,6 +306,21 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 	})
 
+	t.Run("child task mutation commands support direct id selector", func(t *testing.T) {
+		fr := &fakeRunner{output: "child-1"}
+		setupTestRuntimeWithDB(t, fr)
+
+		err := executeAcceptanceRoot(t, "uncomplete-child-task", "--id", "child-1")
+		if err != nil {
+			t.Fatalf("expected uncomplete-child-task --id to succeed: %v", err)
+		}
+
+		scripts := fr.allScripts()
+		if len(scripts) == 0 || !strings.Contains(scripts[len(scripts)-1], `every to do whose id is "child-1"`) {
+			t.Fatalf("expected child-task id based mutation, got %#v", scripts)
+		}
+	})
+
 	t.Run("legacy ambiguous checklist and subtask surface is rejected", func(t *testing.T) {
 		fr := &fakeRunner{output: "task-1"}
 		setupTestRuntimeWithDB(t, fr)

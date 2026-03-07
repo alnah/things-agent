@@ -47,8 +47,14 @@ end tell`
 	return script
 }
 
-func scriptFindChildTask(bundleID, parentName, parentID, childTaskName string, index int) string {
+func scriptFindChildTask(bundleID, parentName, parentID, childTaskName, childTaskID string, index int) string {
 	childTaskName = strings.TrimSpace(childTaskName)
+	childTaskID = strings.TrimSpace(childTaskID)
+	if childTaskID != "" {
+		return fmt.Sprintf(`tell application id "%s"
+%s  set s to t
+`, bundleID, scriptResolveTaskRef("", childTaskID))
+	}
 	return fmt.Sprintf(`tell application id "%s"
 %s  if class of t is not project then error "Child tasks are only supported on projects."
   set childTasks to to dos of t
@@ -148,8 +154,8 @@ func scriptShowTask(bundleID, taskName, taskID string, withChildTasks bool) stri
 end tell`, bundleID, scriptResolveItemRef(taskName, taskID), childTasksBlock)
 }
 
-func scriptEditChildTask(bundleID, parentName, parentID, childTaskName string, index int, newName, notes string) string {
-	script := scriptFindChildTask(bundleID, parentName, parentID, childTaskName, index)
+func scriptEditChildTask(bundleID, parentName, parentID, childTaskName, childTaskID string, index int, newName, notes string) string {
+	script := scriptFindChildTask(bundleID, parentName, parentID, childTaskName, childTaskID, index)
 	if newName != "" {
 		script += fmt.Sprintf(`  set name of s to "%s"
 `, escapeApple(newName))
@@ -163,20 +169,20 @@ end tell`
 	return script
 }
 
-func scriptDeleteChildTask(bundleID, parentName, parentID, childTaskName string, index int) string {
-	script := scriptFindChildTask(bundleID, parentName, parentID, childTaskName, index)
+func scriptDeleteChildTask(bundleID, parentName, parentID, childTaskName, childTaskID string, index int) string {
+	script := scriptFindChildTask(bundleID, parentName, parentID, childTaskName, childTaskID, index)
 	script += `  delete s
   return "ok"
 end tell`
 	return script
 }
 
-func scriptSetChildTaskStatus(bundleID, parentName, parentID, childTaskName string, index int, done bool) string {
+func scriptSetChildTaskStatus(bundleID, parentName, parentID, childTaskName, childTaskID string, index int, done bool) string {
 	state := "open"
 	if done {
 		state = "completed"
 	}
-	script := scriptFindChildTask(bundleID, parentName, parentID, childTaskName, index)
+	script := scriptFindChildTask(bundleID, parentName, parentID, childTaskName, childTaskID, index)
 	script += fmt.Sprintf(`  set status of s to %s
   return id of s
 end tell`, state)

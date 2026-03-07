@@ -20,6 +20,27 @@ func resolveParentSelector(parentName, parentID string) (string, string, error) 
 	}
 }
 
+func resolveChildTaskMutationSelector(parentName, parentID, childTaskName, childTaskID string, childTaskIndex int) (string, string, string, int, error) {
+	childTaskID = strings.TrimSpace(childTaskID)
+	if childTaskID != "" {
+		if strings.TrimSpace(parentName) != "" || strings.TrimSpace(parentID) != "" || strings.TrimSpace(childTaskName) != "" || childTaskIndex > 0 {
+			return "", "", "", 0, errors.New("use either --id or a parent selector with --name/--index")
+		}
+		return "", childTaskID, "", 0, nil
+	}
+
+	var err error
+	parentName, parentID, err = resolveParentSelector(parentName, parentID)
+	if err != nil {
+		return "", "", "", 0, err
+	}
+	childTaskName = strings.TrimSpace(childTaskName)
+	if childTaskIndex <= 0 && childTaskName == "" {
+		return "", "", "", 0, errors.New("provide --id or --index (>=1) or --name")
+	}
+	return parentName, parentID, childTaskName, childTaskIndex, nil
+}
+
 func newAddChecklistItemCmd() *cobra.Command {
 	var taskName, taskID, itemName string
 	cmd := &cobra.Command{
@@ -114,7 +135,7 @@ func newAddChildTaskCmd() *cobra.Command {
 }
 
 func newEditChildTaskCmd() *cobra.Command {
-	var parentName, parentID, childTaskName, newName, notes string
+	var parentName, parentID, childTaskName, childTaskID, newName, notes string
 	var childTaskIndex int
 	cmd := &cobra.Command{
 		Use:   "edit-child-task",
@@ -125,28 +146,25 @@ func newEditChildTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			parentName, parentID, err = resolveParentSelector(parentName, parentID)
+			parentName, parentID, childTaskName, childTaskIndex, err = resolveChildTaskMutationSelector(parentName, parentID, childTaskName, childTaskID, childTaskIndex)
 			if err != nil {
 				return err
 			}
-			childTaskName = strings.TrimSpace(childTaskName)
 			newName = strings.TrimSpace(newName)
 			notes = strings.TrimSpace(notes)
-			if childTaskIndex <= 0 && childTaskName == "" {
-				return errors.New("provide --index (>=1) or --name")
-			}
 			if newName == "" && notes == "" {
 				return errors.New("provide --new-name and/or --notes")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptEditChildTask(cfg.bundleID, parentName, parentID, childTaskName, childTaskIndex, newName, notes))
+			return runResult(ctx, cfg, scriptEditChildTask(cfg.bundleID, parentName, parentID, childTaskName, childTaskID, childTaskIndex, newName, notes))
 		},
 	}
 	cmd.Flags().StringVar(&parentName, "parent", "", "Parent item name")
 	cmd.Flags().StringVar(&parentID, "parent-id", "", "Parent item ID")
 	cmd.Flags().StringVar(&childTaskName, "name", "", "Target child task name")
+	cmd.Flags().StringVar(&childTaskID, "id", "", "Target child task ID")
 	cmd.Flags().IntVar(&childTaskIndex, "index", 0, "Target child task index (1-based)")
 	cmd.Flags().StringVar(&newName, "new-name", "", "New name")
 	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
@@ -154,7 +172,7 @@ func newEditChildTaskCmd() *cobra.Command {
 }
 
 func newDeleteChildTaskCmd() *cobra.Command {
-	var parentName, parentID, childTaskName string
+	var parentName, parentID, childTaskName, childTaskID string
 	var childTaskIndex int
 	cmd := &cobra.Command{
 		Use:   "delete-child-task",
@@ -165,29 +183,26 @@ func newDeleteChildTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			parentName, parentID, err = resolveParentSelector(parentName, parentID)
+			parentName, parentID, childTaskName, childTaskIndex, err = resolveChildTaskMutationSelector(parentName, parentID, childTaskName, childTaskID, childTaskIndex)
 			if err != nil {
 				return err
-			}
-			childTaskName = strings.TrimSpace(childTaskName)
-			if childTaskIndex <= 0 && childTaskName == "" {
-				return errors.New("provide --index (>=1) or --name")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptDeleteChildTask(cfg.bundleID, parentName, parentID, childTaskName, childTaskIndex))
+			return runResult(ctx, cfg, scriptDeleteChildTask(cfg.bundleID, parentName, parentID, childTaskName, childTaskID, childTaskIndex))
 		},
 	}
 	cmd.Flags().StringVar(&parentName, "parent", "", "Parent item name")
 	cmd.Flags().StringVar(&parentID, "parent-id", "", "Parent item ID")
 	cmd.Flags().StringVar(&childTaskName, "name", "", "Child task name")
+	cmd.Flags().StringVar(&childTaskID, "id", "", "Child task ID")
 	cmd.Flags().IntVar(&childTaskIndex, "index", 0, "Child task index (1-based)")
 	return cmd
 }
 
 func newCompleteChildTaskCmd() *cobra.Command {
-	var parentName, parentID, childTaskName string
+	var parentName, parentID, childTaskName, childTaskID string
 	var childTaskIndex int
 	cmd := &cobra.Command{
 		Use:   "complete-child-task",
@@ -198,29 +213,26 @@ func newCompleteChildTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			parentName, parentID, err = resolveParentSelector(parentName, parentID)
+			parentName, parentID, childTaskName, childTaskIndex, err = resolveChildTaskMutationSelector(parentName, parentID, childTaskName, childTaskID, childTaskIndex)
 			if err != nil {
 				return err
-			}
-			childTaskName = strings.TrimSpace(childTaskName)
-			if childTaskIndex <= 0 && childTaskName == "" {
-				return errors.New("provide --index (>=1) or --name")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptSetChildTaskStatus(cfg.bundleID, parentName, parentID, childTaskName, childTaskIndex, true))
+			return runResult(ctx, cfg, scriptSetChildTaskStatus(cfg.bundleID, parentName, parentID, childTaskName, childTaskID, childTaskIndex, true))
 		},
 	}
 	cmd.Flags().StringVar(&parentName, "parent", "", "Parent item name")
 	cmd.Flags().StringVar(&parentID, "parent-id", "", "Parent item ID")
 	cmd.Flags().StringVar(&childTaskName, "name", "", "Child task name")
+	cmd.Flags().StringVar(&childTaskID, "id", "", "Child task ID")
 	cmd.Flags().IntVar(&childTaskIndex, "index", 0, "Child task index (1-based)")
 	return cmd
 }
 
 func newUncompleteChildTaskCmd() *cobra.Command {
-	var parentName, parentID, childTaskName string
+	var parentName, parentID, childTaskName, childTaskID string
 	var childTaskIndex int
 	cmd := &cobra.Command{
 		Use:   "uncomplete-child-task",
@@ -231,23 +243,20 @@ func newUncompleteChildTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			parentName, parentID, err = resolveParentSelector(parentName, parentID)
+			parentName, parentID, childTaskName, childTaskIndex, err = resolveChildTaskMutationSelector(parentName, parentID, childTaskName, childTaskID, childTaskIndex)
 			if err != nil {
 				return err
-			}
-			childTaskName = strings.TrimSpace(childTaskName)
-			if childTaskIndex <= 0 && childTaskName == "" {
-				return errors.New("provide --index (>=1) or --name")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptSetChildTaskStatus(cfg.bundleID, parentName, parentID, childTaskName, childTaskIndex, false))
+			return runResult(ctx, cfg, scriptSetChildTaskStatus(cfg.bundleID, parentName, parentID, childTaskName, childTaskID, childTaskIndex, false))
 		},
 	}
 	cmd.Flags().StringVar(&parentName, "parent", "", "Parent item name")
 	cmd.Flags().StringVar(&parentID, "parent-id", "", "Parent item ID")
 	cmd.Flags().StringVar(&childTaskName, "name", "", "Child task name")
+	cmd.Flags().StringVar(&childTaskID, "id", "", "Child task ID")
 	cmd.Flags().IntVar(&childTaskIndex, "index", 0, "Child task index (1-based)")
 	return cmd
 }
