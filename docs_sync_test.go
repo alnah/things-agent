@@ -19,7 +19,8 @@ func TestDocsSyncGate(t *testing.T) {
 		"add-task --area",
 		"add-task --project",
 		"edit-task (--name <name> | --id <id>)",
-		"list-checklist-items (--task <name> | --task-id <id>)",
+		"list-child-tasks (--parent <name> | --parent-id <id>)",
+		"add-child-task (--parent <name> | --parent-id <id>)",
 	}
 	for _, needle := range required {
 		if !strings.Contains(agents, needle) && !strings.Contains(readme, needle) {
@@ -30,6 +31,7 @@ func TestDocsSyncGate(t *testing.T) {
 	agentsRequired := []string{
 		"show-task (--name <name> | --id <id>)",
 		"add-checklist-item (--task <name> | --task-id <id>) --name <name>",
+		"add-child-task (--parent <name> | --parent-id <id>) --name <name>",
 	}
 	for _, needle := range agentsRequired {
 		if !strings.Contains(agents, needle) {
@@ -41,6 +43,7 @@ func TestDocsSyncGate(t *testing.T) {
 		"things-agent show-task --id",
 		"things-agent complete-task --id",
 		"things-agent add-checklist-item --task-id",
+		"things-agent add-child-task --parent-id",
 	}
 	for _, needle := range readmeRequired {
 		if !strings.Contains(readme, needle) {
@@ -53,6 +56,12 @@ func TestDocsSyncGate(t *testing.T) {
 		"restore --file",
 		"add-task --name \"Say hello\" --notes \"Message\" --list",
 		"add-project --name <name> [--list <area>]",
+		"list-checklist-items (--task <name> | --task-id <id>)",
+		"edit-checklist-item (--task <name> | --task-id <id>)",
+		"delete-checklist-item (--task <name> | --task-id <id>)",
+		"complete-checklist-item (--task <name> | --task-id <id>)",
+		"uncomplete-checklist-item (--task <name> | --task-id <id>)",
+		"--with-checklist-items",
 	}
 	for _, needle := range forbidden {
 		if strings.Contains(agents, needle) || strings.Contains(readme, needle) {

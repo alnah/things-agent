@@ -60,8 +60,8 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent tags delete --name <name>` | Delete a tag | yes | Destructive |
 | `things-agent tasks [--list <name>] [--query <text>] [--json]` | List tasks with optional filters | no | Read operation |
 | `things-agent search --query <text> [--list <name>] [--json]` | Search tasks | no | Read operation |
-| `things-agent show-task (--name <name> | --id <id>) [--json]` | Show full task/project details | no | Includes metadata |
-| `things-agent add-task --area <name> ...` / `things-agent add-task --project <name> ...` | Create a task | yes | Write operation with explicit destination |
+| `things-agent show-task (--name <name> | --id <id>) [--with-child-tasks] [--json]` | Show full task/project details | no | Includes metadata and optional child tasks |
+| `things-agent add-task --area <name> ...` / `things-agent add-task --project <name> ...` | Create a task | yes | Write operation with explicit destination; `--checklist-items` creates a native checklist |
 | `things-agent edit-task (--name <name> | --id <id>) ...` | Edit a task | yes | Write operation |
 | `things-agent delete-task (--name <name> | --id <id>)` | Delete a task | yes | Destructive |
 | `things-agent complete-task (--name <name> | --id <id>)` | Mark task completed | yes | Write operation |
@@ -79,12 +79,13 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent add-list --name <name>` | Create area/list | yes | Write operation |
 | `things-agent edit-list --name <name> --new-name <name>` | Rename area/list | yes | Write operation |
 | `things-agent delete-list --name <name>` | Delete area/list | yes | Destructive |
-| `things-agent list-checklist-items (--task <name> | --task-id <id>)` | List checklist items | no | Read operation |
 | `things-agent add-checklist-item (--task <name> | --task-id <id>) --name <name>` | Add checklist item | yes | Requires token |
-| `things-agent edit-checklist-item (--task <name> | --task-id <id>) ...` | Edit checklist item | yes | Write operation |
-| `things-agent delete-checklist-item (--task <name> | --task-id <id>) ...` | Delete checklist item | yes | Destructive |
-| `things-agent complete-checklist-item (--task <name> | --task-id <id>) ...` | Mark checklist item completed | yes | Write operation |
-| `things-agent uncomplete-checklist-item (--task <name> | --task-id <id>) ...` | Mark checklist item open | yes | Write operation |
+| `things-agent list-child-tasks (--parent <name> | --parent-id <id>)` | List child tasks under a task/project | no | Read operation |
+| `things-agent add-child-task (--parent <name> | --parent-id <id>) --name <name> [--notes <text>]` | Add a child task under a task/project | yes | Write operation |
+| `things-agent edit-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>] ...` | Edit a child task | yes | Write operation |
+| `things-agent delete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Delete a child task | yes | Destructive |
+| `things-agent complete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task completed | yes | Write operation |
+| `things-agent uncomplete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task open | yes | Write operation |
 | `things-agent url add ...` | Things URL Scheme `add` | yes | Direct URL bridge |
 | `things-agent url update ...` | Things URL Scheme `update` | yes | Requires token |
 | `things-agent url add-project ...` | Things URL Scheme `add-project` | yes | Direct URL bridge |
@@ -115,9 +116,10 @@ The agent should treat this table as the current command surface of the CLI.
   - Edit a task
   - Delete a task
   - Mark task completed
-  - View a task (id, name, status, due/deadline, tags, notes, checklist items)
+  - View a task (id, name, status, due/deadline, tags, notes, child tasks)
   - Manage notes
-  - Manage checklist items
+  - Add native checklist items
+  - Manage child tasks
 - Dates:
   - Set/update `deadline` and due fields
   - Support coherent date formats (ISO/localized based on input)

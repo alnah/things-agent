@@ -134,15 +134,16 @@ things-agent tasks --list "À classer" --json
 things-agent search --query "Wagner"
 things-agent search --query "Wagner" --json
 things-agent projects --json
-things-agent show-task --name "Say hello" --json
+things-agent show-task --name "Say hello" --with-child-tasks --json
 things-agent show-task --id "<todo-id>" --json
 things-agent add-task --name "Say hello" --notes "Message" --area "À classer"
 things-agent add-task --name "File chapter draft" --project "French Course"
 THINGS_DEFAULT_LIST="À classer" things-agent add-task --name "Uses env default list"
 things-agent add-task --name "Native checklist" --checklist-items "Point 1, Point 2" --auth-token "<token>"
 things-agent complete-task --id "<todo-id>"
-things-agent list-checklist-items --task-id "<todo-id>"
 things-agent add-checklist-item --task-id "<todo-id>" --name "Review the message"
+things-agent list-child-tasks --parent-id "<todo-id>"
+things-agent add-child-task --parent-id "<todo-id>" --name "Follow up draft" --notes "Needs review"
 things-agent tags list
 things-agent tags search --query "work"
 things-agent tags add --name "urgent"
@@ -211,14 +212,15 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | Command group | Commands | Notes |
 | --- | --- | --- |
 | Session and backup | `session-start`, `backup`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--dry-run] [--json]`, `restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `restore` creates a pre-restore backup, quiesces Things, verifies files, rolls back on failure, and can emit a structured journal for the agent |
-| Core listing/search | `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task --name <name> [--json]` | `--json` is intended for agent consumption |
+| Core listing/search | `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task (--name|--id) [--with-child-tasks] [--json]` | `--json` is intended for agent consumption |
 | Tag entities | `tags list`, `tags search`, `tags add`, `tags edit`, `tags delete` | Manage Things tags directly |
-| Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task (--name|--id)`, `delete-task (--name|--id)`, `complete-task (--name|--id)`, `uncomplete-task (--name|--id)` | Standard to-do operations with explicit destination on create |
+| Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task (--name|--id)`, `delete-task (--name|--id)`, `complete-task (--name|--id)`, `uncomplete-task (--name|--id)` | Standard to-do operations with explicit destination on create; `--checklist-items` creates native checklist |
 | Task metadata | `set-task-notes (--name|--id)`, `append-task-notes (--name|--id)`, `set-task-date (--name|--id)` | Notes and date updates |
 | Tags | `set-tags (--name|--id)`, `set-task-tags (--name|--id)`, `add-task-tags (--name|--id)`, `remove-task-tags (--name|--id)` | Exact set and incremental updates |
 | Projects | `add-project [--area <name>]`, `edit-project (--name|--id)`, `delete-project (--name|--id)` | Project CRUD |
 | Areas/lists | `add-list`, `edit-list`, `delete-list` | Area/list CRUD |
-| Checklist items | `add-checklist-item (--task|--task-id)`, `edit-checklist-item (--task|--task-id)`, `delete-checklist-item (--task|--task-id)`, `complete-checklist-item (--task|--task-id)`, `uncomplete-checklist-item (--task|--task-id)`, `list-checklist-items (--task|--task-id)` | `add-checklist-item` uses native checklist and requires token |
+| Checklist items | `add-checklist-item (--task|--task-id)` | Native checklist write path; requires token |
+| Child tasks | `list-child-tasks (--parent|--parent-id)`, `add-child-task (--parent|--parent-id)`, `edit-child-task (--parent|--parent-id)`, `delete-child-task (--parent|--parent-id)`, `complete-child-task (--parent|--parent-id)`, `uncomplete-child-task (--parent|--parent-id)` | Explicit AppleScript child-task surface for tasks and projects |
 | URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|json` | Direct mapping of Things URL Scheme |
 | CLI info | `version` | Print CLI version |
 | Checklist shortcut | `add-task --checklist-items "a, b"` | Creates native checklist, requires `--auth-token` or `THINGS_AUTH_TOKEN` |
