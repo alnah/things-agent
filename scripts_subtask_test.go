@@ -16,6 +16,9 @@ func TestScriptChildTaskListingAndShow(t *testing.T) {
 	if !strings.Contains(list, `return "status:empty"`) {
 		t.Fatalf("expected empty status marker: %s", list)
 	}
+	if !strings.Contains(list, `(id: " & (id of s) & ")`) {
+		t.Fatalf("expected child task id in list output: %s", list)
+	}
 	if !strings.Contains(list, `on error errMsg number errNum`) || !strings.Contains(list, `status:unsupported`) {
 		t.Fatalf("expected unsupported status marker: %s", list)
 	}
@@ -26,6 +29,12 @@ func TestScriptChildTaskListingAndShow(t *testing.T) {
 	}
 	if !strings.Contains(showWith, "Deadline: ") {
 		t.Fatalf("expected deadline line in show-task script: %s", showWith)
+	}
+	if !strings.Contains(showWith, `(id: " & (id of s) & ")`) {
+		t.Fatalf("expected child task id in show-task output: %s", showWith)
+	}
+	if !strings.Contains(showWith, "on isoDateValue(d)") || !strings.Contains(showWith, `my isoDateValue(activation date of t)`) {
+		t.Fatalf("expected ISO date formatting in show-task script: %s", showWith)
 	}
 	if !strings.Contains(showWith, "Checklist Items: unsupported via AppleScript") {
 		t.Fatalf("expected explicit checklist limitation in show-task script: %s", showWith)
@@ -61,9 +70,12 @@ func TestScriptFindChildTaskByIndexOrName(t *testing.T) {
 	if !strings.Contains(byName, `if (name of childTaskRef as string) is "sub"`) {
 		t.Fatalf("expected lookup by name: %s", byName)
 	}
+	if !strings.Contains(byName, `every to do of list "Logbook" whose name is "sub"`) || !strings.Contains(byName, `every to do of list "Archive" whose name is "sub"`) {
+		t.Fatalf("expected completed child-task fallback in name lookup: %s", byName)
+	}
 
 	byID := scriptFindChildTask("bundle.id", "", "", "", "child-1", 0)
-	if !strings.Contains(byID, `every to do whose id is "child-1"`) || strings.Contains(byID, "set childTasks to to dos of t") {
+	if !strings.Contains(byID, `every to do whose id is "child-1"`) || strings.Contains(byID, "repeat with candidate in every to do") {
 		t.Fatalf("expected direct id lookup without parent traversal: %s", byID)
 	}
 }

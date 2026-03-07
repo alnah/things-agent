@@ -41,8 +41,8 @@ func TestParseShowTaskOutput(t *testing.T) {
 		"line two",
 		"Checklist Items: unsupported via AppleScript",
 		"Child Tasks:",
-		"1. Review [open] | note-a",
-		"2. Ship [completed]",
+		"1. Review [open] (id: child-1) | note-a",
+		"2. Ship [completed] (id: child-2)",
 	}, "\n")
 
 	item, err := parseShowTaskOutput(raw)
@@ -51,6 +51,9 @@ func TestParseShowTaskOutput(t *testing.T) {
 	}
 	if item.ID != "task-1" || item.Name != "Task A" || item.Type != "project" || item.Status != "completed" {
 		t.Fatalf("unexpected show-task payload: %#v", item)
+	}
+	if item.Due != "2026-03-06 00:00:00" || item.Completed != "2026-03-07 00:00:00" || item.Created != "2026-03-01 00:00:00" {
+		t.Fatalf("unexpected date parsing: %#v", item)
 	}
 	if item.Notes != "line one\nline two" {
 		t.Fatalf("unexpected notes: %q", item.Notes)
@@ -63,6 +66,9 @@ func TestParseShowTaskOutput(t *testing.T) {
 	}
 	if len(item.ChildTasks) != 2 || item.ChildTasks[0].Name != "Review" || item.ChildTasks[1].Status != "completed" {
 		t.Fatalf("unexpected child_tasks: %#v", item.ChildTasks)
+	}
+	if item.ChildTasks[0].ID != "child-1" || item.ChildTasks[1].ID != "child-2" {
+		t.Fatalf("unexpected child task ids: %#v", item.ChildTasks)
 	}
 }
 
@@ -149,5 +155,34 @@ func TestRunJSONResultPropagatesRunnerError(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected runner error")
+	}
+}
+
+func TestShowTaskJSONKeepsEmptyDateFields(t *testing.T) {
+	fr := &fakeRunner{output: strings.Join([]string{
+		"ID: task-3",
+		"Name: Task C",
+		"Type: to do",
+		"Statut: open",
+		"Due: ",
+		"Deadline: ",
+		"Completed on: ",
+		"Created on: 2026-03-01 00:00:00",
+		"Tags: ",
+		"Notes: ",
+		"Checklist Items: unsupported via AppleScript",
+	}, "\n")}
+	setupTestRuntime(t, t.TempDir(), fr)
+
+	stdout, err := captureStdout(t, func() error {
+		root := newRootCmd()
+		root.SetArgs([]string{"show-task", "--name", "Task C", "--json"})
+		return root.Execute()
+	})
+	if err != nil {
+		t.Fatalf("show-task --json failed: %v", err)
+	}
+	if !strings.Contains(stdout, `"due":""`) || !strings.Contains(stdout, `"deadline":""`) || !strings.Contains(stdout, `"completed":""`) {
+		t.Fatalf("expected empty date fields to be preserved, got %s", stdout)
 	}
 }

@@ -14,10 +14,10 @@ type readItem struct {
 	Type                    string              `json:"type"`
 	Status                  string              `json:"status"`
 	Scope                   string              `json:"scope,omitempty"`
-	Due                     string              `json:"due,omitempty"`
-	Deadline                string              `json:"deadline,omitempty"`
-	Created                 string              `json:"created,omitempty"`
-	Completed               string              `json:"completed,omitempty"`
+	Due                     string              `json:"due"`
+	Deadline                string              `json:"deadline"`
+	Created                 string              `json:"created"`
+	Completed               string              `json:"completed"`
 	Tags                    []string            `json:"tags,omitempty"`
 	Notes                   string              `json:"notes,omitempty"`
 	ChecklistItemsSupported bool                `json:"checklist_items_supported"`
@@ -26,6 +26,7 @@ type readItem struct {
 
 type readChildTaskItem struct {
 	Index  int    `json:"index"`
+	ID     string `json:"id,omitempty"`
 	Name   string `json:"name"`
 	Status string `json:"status"`
 	Notes  string `json:"notes,omitempty"`
@@ -200,9 +201,19 @@ func parseChildTaskLine(line string) (readChildTaskItem, bool) {
 	indexText := strings.TrimSpace(line[:dot])
 	nameText := strings.TrimSpace(line[dot+2 : openBracket])
 	statusText := strings.TrimSpace(line[openBracket+2 : closeBracket])
+	rest := strings.TrimSpace(line[closeBracket+1:])
+	idText := ""
 	notesText := ""
-	if sep := strings.Index(line[closeBracket+1:], " | "); sep >= 0 {
-		notesText = strings.TrimSpace(line[closeBracket+1+sep+3:])
+	if strings.HasPrefix(rest, "(id: ") {
+		endID := strings.Index(rest, ")")
+		if endID <= len("(id: ") {
+			return readChildTaskItem{}, false
+		}
+		idText = strings.TrimSpace(rest[len("(id: "):endID])
+		rest = strings.TrimSpace(rest[endID+1:])
+	}
+	if strings.HasPrefix(rest, "| ") {
+		notesText = strings.TrimSpace(strings.TrimPrefix(rest, "| "))
 	}
 
 	index := 0
@@ -218,6 +229,7 @@ func parseChildTaskLine(line string) (readChildTaskItem, bool) {
 
 	item = readChildTaskItem{
 		Index:  index,
+		ID:     idText,
 		Name:   nameText,
 		Status: statusText,
 		Notes:  notesText,

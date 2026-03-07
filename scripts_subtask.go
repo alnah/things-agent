@@ -19,7 +19,7 @@ func scriptListChildTasks(bundleID, parentName, parentID string) string {
   set out to "status:ok"
   repeat with i from 1 to count childTasks
     set s to item i of childTasks
-    set childTaskLine to (i as string) & ". " & (name of s)
+    set childTaskLine to (i as string) & ". " & (name of s) & " (id: " & (id of s) & ")"
     if (notes of s is not missing value) and (notes of s is not "") then
       set childTaskLine to childTaskLine & " | " & (notes of s)
     end if
@@ -69,10 +69,34 @@ func scriptFindChildTask(bundleID, parentName, parentID, childTaskName, childTas
         set s to contents of childTaskRef
       end if
     end repeat
+    if matchedCount is 0 then
+      try
+        set logbookMatches to every to do of list "Logbook" whose name is "%s"
+        repeat with childTaskRef in logbookMatches
+          try
+            if (project of childTaskRef is not missing value) and ((id of project of childTaskRef) is (id of t)) and ((name of childTaskRef as string) is "%s") then
+              set matchedCount to matchedCount + 1
+              set s to contents of childTaskRef
+            end if
+          end try
+        end repeat
+      end try
+      try
+        set archiveMatches to every to do of list "Archive" whose name is "%s"
+        repeat with childTaskRef in archiveMatches
+          try
+            if (project of childTaskRef is not missing value) and ((id of project of childTaskRef) is (id of t)) and ((name of childTaskRef as string) is "%s") then
+              set matchedCount to matchedCount + 1
+              set s to contents of childTaskRef
+            end if
+          end try
+        end repeat
+      end try
+    end if
     if matchedCount is 0 then error "No child task found on this item."
     if matchedCount is greater than 1 then error "Ambiguous child task name on this item; use --index."
   end if
-`, bundleID, scriptResolveItemRef(parentName, parentID), index, index, index, escapeApple(childTaskName))
+`, bundleID, scriptResolveItemRef(parentName, parentID), index, index, index, escapeApple(childTaskName), escapeApple(childTaskName), escapeApple(childTaskName), escapeApple(childTaskName), escapeApple(childTaskName))
 }
 
 func scriptShowTask(bundleID, taskName, taskID string, withChildTasks bool) string {
@@ -80,28 +104,38 @@ func scriptShowTask(bundleID, taskName, taskID string, withChildTasks bool) stri
 	if withChildTasks {
 		childTasksBlock = "true"
 	}
-	return fmt.Sprintf(`tell application id "%s"
+	return fmt.Sprintf(`on pad2(v)
+  set s to (v as integer) as string
+  if (count s) is 1 then return "0" & s
+  return s
+end pad2
+
+on isoDateValue(d)
+  return (year of d as string) & "-" & my pad2((month of d) as integer) & "-" & my pad2(day of d) & " " & my pad2(hours of d) & ":" & my pad2(minutes of d) & ":" & my pad2(seconds of d)
+end isoDateValue
+
+tell application id "%s"
 %s  set out to "ID: " & (id of t)
   set out to out & linefeed & "Name: " & (name of t)
   set out to out & linefeed & "Type: " & (class of t as string)
   set out to out & linefeed & "Statut: " & (status of t as string)
   if activation date of t is not missing value then
-    set out to out & linefeed & "Due: " & (activation date of t as string)
+    set out to out & linefeed & "Due: " & my isoDateValue(activation date of t)
   else
     set out to out & linefeed & "Due: "
   end if
   if due date of t is not missing value then
-    set out to out & linefeed & "Deadline: " & (due date of t as string)
+    set out to out & linefeed & "Deadline: " & my isoDateValue(due date of t)
   else
     set out to out & linefeed & "Deadline: "
   end if
   if completion date of t is not missing value then
-    set out to out & linefeed & "Completed on: " & (completion date of t as string)
+    set out to out & linefeed & "Completed on: " & my isoDateValue(completion date of t)
   else
     set out to out & linefeed & "Completed on: "
   end if
   if creation date of t is not missing value then
-    set out to out & linefeed & "Created on: " & (creation date of t as string)
+    set out to out & linefeed & "Created on: " & my isoDateValue(creation date of t)
   else
     set out to out & linefeed & "Created on: "
   end if
@@ -135,7 +169,7 @@ func scriptShowTask(bundleID, taskName, taskID string, withChildTasks bool) stri
         set childTaskLines to ""
         repeat with i from 1 to count childTasks
           set s to item i of childTasks
-          set lineItem to (i as string) & ". " & (name of s) & " [" & (status of s as string) & "]"
+          set lineItem to (i as string) & ". " & (name of s) & " [" & (status of s as string) & "] (id: " & (id of s) & ")"
           if (notes of s is not missing value) and (notes of s is not "") then
             set lineItem to lineItem & " | " & (notes of s)
           end if

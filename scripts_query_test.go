@@ -52,10 +52,10 @@ func TestScriptTasksStructuredBranches(t *testing.T) {
 
 func TestScriptAllProjectsStructured(t *testing.T) {
 	got := scriptAllProjectsStructured("bundle.id")
-	if !strings.Contains(got, `repeat with p in every project`) {
+	if !strings.Contains(got, `set projectIDs to id of projects`) || !strings.Contains(got, `set projectNames to name of projects`) {
 		t.Fatalf("unexpected structured projects script: %s", got)
 	}
-	if !strings.Contains(got, `id of p as string`) || !strings.Contains(got, `status of p as string`) {
+	if !strings.Contains(got, `item i of projectIDs`) || !strings.Contains(got, `& tab & "unknown"`) {
 		t.Fatalf("expected structured project fields, got: %s", got)
 	}
 }

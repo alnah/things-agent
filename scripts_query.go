@@ -157,9 +157,11 @@ end tell`, bundleID)
 
 func scriptAllProjectsStructured(bundleID string) string {
 	return fmt.Sprintf(`tell application id "%s"
+  set projectIDs to id of projects
+  set projectNames to name of projects
   set outLines to {}
-  repeat with p in every project
-    set end of outLines to ((id of p as string) & tab & (name of p) & tab & (status of p as string))
+  repeat with i from 1 to count projectIDs
+    set end of outLines to (((item i of projectIDs) as string) & tab & (item i of projectNames) & tab & "unknown")
   end repeat
   set AppleScript's text item delimiters to linefeed
   return outLines as text
