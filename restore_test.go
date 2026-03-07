@@ -16,6 +16,8 @@ type fakeAppController struct {
 	running       []bool
 	quitCalls     int
 	activateCalls int
+	quitFn        func()
+	activateFn    func()
 	quitErr       error
 	activateErr   error
 	runningErr    error
@@ -41,6 +43,9 @@ func (f *fakeAppController) Quit(_ context.Context, _ string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.quitCalls++
+	if f.quitFn != nil {
+		f.quitFn()
+	}
 	return f.quitErr
 }
 
@@ -48,6 +53,9 @@ func (f *fakeAppController) Activate(_ context.Context, _ string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.activateCalls++
+	if f.activateFn != nil {
+		f.activateFn()
+	}
 	return f.activateErr
 }
 
@@ -126,11 +134,11 @@ func TestRestoreExecutorRestoresAndReopensWhenAppWasRunning(t *testing.T) {
 	}
 
 	quitCalls, activateCalls := app.counts()
-	if quitCalls != 1 {
-		t.Fatalf("expected one quit call, got %d", quitCalls)
+	if quitCalls != 2 {
+		t.Fatalf("expected two quit calls, got %d", quitCalls)
 	}
-	if activateCalls != 1 {
-		t.Fatalf("expected one activate call, got %d", activateCalls)
+	if activateCalls != 2 {
+		t.Fatalf("expected two activate calls, got %d", activateCalls)
 	}
 }
 
@@ -317,6 +325,39 @@ func TestRestoreExecutorRollsBackWhenSemanticVerificationFails(t *testing.T) {
 	_, err = exec.Execute(context.Background(), targetTS, false)
 	if err == nil || !strings.Contains(err.Error(), "semantic verify restored snapshot") || !strings.Contains(err.Error(), "rollback succeeded") {
 		t.Fatalf("expected semantic rollback error, got %v", err)
+	}
+	if got := readLiveDBFile(t, tmp, "main.sqlite"); got != "main.sqlite:after" {
+		t.Fatalf("expected rollback to restore previous live state, got %q", got)
+	}
+}
+
+func TestRestoreExecutorRollsBackWhenPostLaunchVerificationFails(t *testing.T) {
+	tmp := t.TempDir()
+	writeLiveDBSet(t, tmp, "before")
+
+	bm := newBackupManager(tmp)
+	created, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	targetTS := inferTimestamp(created[0])
+	writeLiveDBSet(t, tmp, "after")
+
+	activateCalls := 0
+	app := &fakeAppController{
+		running: []bool{true, true, false, false, true, false, false},
+		activateFn: func() {
+			activateCalls++
+			if activateCalls == 1 {
+				writeLiveDBSet(t, tmp, "drifted")
+			}
+		},
+	}
+	exec := newTestRestoreExecutor(bm, app)
+
+	_, err = exec.Execute(context.Background(), targetTS, false)
+	if err == nil || !strings.Contains(err.Error(), "post-launch verify restored snapshot") || !strings.Contains(err.Error(), "rollback succeeded") {
+		t.Fatalf("expected post-launch verification rollback error, got %v", err)
 	}
 	if got := readLiveDBFile(t, tmp, "main.sqlite"); got != "main.sqlite:after" {
 		t.Fatalf("expected rollback to restore previous live state, got %q", got)

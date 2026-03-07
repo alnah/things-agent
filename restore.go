@@ -128,6 +128,7 @@ type restoreJournal struct {
 	PreRestoreBackup     *restoreBackupRecord         `json:"pre_restore_backup,omitempty"`
 	RestoredFiles        []string                     `json:"restored_files,omitempty"`
 	Verification         *restoreVerificationReport   `json:"verification,omitempty"`
+	PostLaunchVerification *restoreVerificationReport `json:"post_launch_verification,omitempty"`
 	SemanticVerification *restoreSemanticVerification `json:"semantic_verification,omitempty"`
 	Rollback             *restoreRollbackReport       `json:"rollback,omitempty"`
 	Steps                []restoreJournalStep         `json:"steps"`
@@ -261,14 +262,28 @@ func (r *restoreExecutor) Execute(ctx context.Context, timestamp string, dryRun 
 	}
 	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "semantic-verify", Status: "ok"})
 
-	if !preflight.AppRunning {
-		if err := r.quiesce(ctx, true); err != nil {
-			journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reclose", Status: "failed", Error: err.Error()})
+	if err := r.quiesce(ctx, true); err != nil {
+		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reclose", Status: "failed", Error: err.Error()})
+		return journal, err
+	}
+	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reclose", Status: "ok"})
+
+	postLaunchVerification, err := r.Verify(ctx, preflight.Timestamp)
+	journal.PostLaunchVerification = &postLaunchVerification
+	if err != nil {
+		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "post-launch-verify", Status: "failed", Error: err.Error()})
+		rollback, restoreErr := r.restoreFailureWithAppState(ctx, preRestoreTS, preflight.AppRunning, false, fmt.Errorf("post-launch verify restored snapshot %s: %w", preflight.Timestamp, err))
+		journal.Rollback = rollback
+		return journal, restoreErr
+	}
+	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "post-launch-verify", Status: "ok"})
+
+	if preflight.AppRunning {
+		if err := r.app.Activate(ctx, r.bundleID); err != nil {
+			journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reopen", Status: "failed", Error: err.Error()})
 			return journal, err
 		}
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reclose", Status: "ok"})
-	} else {
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reclose", Status: "skipped"})
+		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reopen", Status: "ok"})
 	}
 
 	journal.Outcome = "restored"
