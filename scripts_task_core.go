@@ -56,13 +56,17 @@ func appleScriptDateAssignment(varName, propertyName, normalized string) string 
 `, propertyName, normalized)
 	}
 	monthName := appleScriptMonthNames[int(parsed.Month())-1]
-	return fmt.Sprintf(`  set %s to current date
+	script := fmt.Sprintf(`  set %s to current date
   set year of %s to %d
   set month of %s to %s
   set day of %s to %d
   set time of %s to %d
-  set %s of t to %s
-`, varName, varName, parsed.Year(), varName, monthName, varName, parsed.Day(), varName, parsed.Hour()*3600+parsed.Minute()*60+parsed.Second(), propertyName, varName)
+`, varName, varName, parsed.Year(), varName, monthName, varName, parsed.Day(), varName, parsed.Hour()*3600+parsed.Minute()*60+parsed.Second())
+	if strings.TrimSpace(propertyName) != "" {
+		script += fmt.Sprintf(`  set %s of t to %s
+`, propertyName, varName)
+	}
+	return script
 }
 
 func scriptAddTaskToArea(bundleID, areaName, name, notes, tags, due string) string {
@@ -260,11 +264,13 @@ func scriptSetTaskDate(bundleID, taskName, taskID, dueDate string, clear bool) s
 	script := fmt.Sprintf(`tell application id "%s"
 %s`, bundleID, scriptResolveTaskRef(taskName, taskID))
 	if clear {
-		script += `  set due date of t to missing value
+		script += `  set activation date of t to missing value
 `
 	}
 	if strings.TrimSpace(dueDate) != "" {
-		script += appleScriptDateAssignment("dueDateValue", "due date", dueDate)
+		script += appleScriptDateAssignment("dueDateValue", "", dueDate)
+		script += `  schedule t for dueDateValue
+`
 	}
 	script += `  return id of t
 	end tell`

@@ -87,10 +87,10 @@ func TestScriptAppendTaskNotesDefaultSeparator(t *testing.T) {
 
 func TestScriptSetTaskDateClearsAndSetsDueOnly(t *testing.T) {
 	s := scriptSetTaskDate(defaultBundleID, "task", "", "2026-03-06 00:00:00", true)
-	if !strings.Contains(s, "set due date of t to missing value") {
+	if !strings.Contains(s, "set activation date of t to missing value") {
 		t.Fatalf("expected clear due date step: %s", s)
 	}
-	if !strings.Contains(s, `set month of dueDateValue to March`) || !strings.Contains(s, `set due date of t to dueDateValue`) {
+	if !strings.Contains(s, `set month of dueDateValue to March`) || !strings.Contains(s, `schedule t for dueDateValue`) {
 		t.Fatalf("expected due date set: %s", s)
 	}
 }

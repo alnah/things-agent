@@ -24,6 +24,9 @@ func TestScriptChildTaskListingAndShow(t *testing.T) {
 	if !strings.Contains(showWith, "if true then") {
 		t.Fatalf("expected child-task block enabled: %s", showWith)
 	}
+	if !strings.Contains(showWith, "Deadline: ") {
+		t.Fatalf("expected deadline line in show-task script: %s", showWith)
+	}
 	showWithout := scriptShowTask("bundle.id", "task", "", false)
 	if !strings.Contains(showWithout, "if false then") {
 		t.Fatalf("expected child-task block disabled: %s", showWithout)

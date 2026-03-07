@@ -79,10 +79,15 @@ func scriptShowTask(bundleID, taskName, taskID string, withChildTasks bool) stri
   set out to out & linefeed & "Name: " & (name of t)
   set out to out & linefeed & "Type: " & (class of t as string)
   set out to out & linefeed & "Statut: " & (status of t as string)
-  if due date of t is not missing value then
-    set out to out & linefeed & "Due: " & (due date of t as string)
+  if activation date of t is not missing value then
+    set out to out & linefeed & "Due: " & (activation date of t as string)
   else
     set out to out & linefeed & "Due: "
+  end if
+  if due date of t is not missing value then
+    set out to out & linefeed & "Deadline: " & (due date of t as string)
+  else
+    set out to out & linefeed & "Deadline: "
   end if
   if completion date of t is not missing value then
     set out to out & linefeed & "Completed on: " & (completion date of t as string)

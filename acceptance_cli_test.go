@@ -173,7 +173,7 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 
 		scripts := strings.Join(fr.allScripts(), "\n")
-		if !strings.Contains(scripts, `set month of dueDateValue to March`) || !strings.Contains(scripts, `set due date of t to dueDateValue`) {
+		if !strings.Contains(scripts, `set month of dueDateValue to March`) || !strings.Contains(scripts, `schedule t for dueDateValue`) {
 			t.Fatalf("expected due date AppleScript mutation, got %s", scripts)
 		}
 		if !strings.Contains(scripts, "things:///update?auth-token=token-test") || !strings.Contains(scripts, "&deadline=2026-03-07%2000%3A00%3A00") {

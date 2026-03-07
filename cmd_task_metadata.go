@@ -316,8 +316,25 @@ func newSetTaskDateCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			if clearDue || dueDate != "" {
-				if err := runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, id, dueDate, clearDue)); err != nil {
+			if clearDue {
+				item, err := readCurrentTaskItem(cmd, cfg, name, id)
+				if err != nil {
+					return err
+				}
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				if err := runThingsURL(ctx, cfg, "update", map[string]string{
+					"auth-token": token,
+					"id":         item.ID,
+					"when":       "",
+				}); err != nil {
+					return err
+				}
+			}
+			if dueDate != "" {
+				if err := runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, id, dueDate, false)); err != nil {
 					return err
 				}
 			}

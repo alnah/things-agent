@@ -130,6 +130,9 @@ func parseShowTaskOutput(raw string) (readItem, error) {
 		case strings.HasPrefix(line, "Due: "):
 			item.Due = strings.TrimSpace(strings.TrimPrefix(line, "Due: "))
 			inNotes = false
+		case strings.HasPrefix(line, "Deadline: "):
+			item.Deadline = strings.TrimSpace(strings.TrimPrefix(line, "Deadline: "))
+			inNotes = false
 		case strings.HasPrefix(line, "Completed on: "):
 			item.Completed = strings.TrimSpace(strings.TrimPrefix(line, "Completed on: "))
 			inNotes = false

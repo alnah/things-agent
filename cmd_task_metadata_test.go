@@ -99,7 +99,23 @@ func TestTaskMetadataCommands(t *testing.T) {
 	})
 
 	t.Run("set-task-date success and clear", func(t *testing.T) {
-		fr := &fakeRunner{output: "ok"}
+		fr := &fakeRunner{runFn: func(script string) (string, error) {
+			if strings.Contains(script, `set out to "ID: "`) {
+				return strings.Join([]string{
+					"ID: task-1",
+					"Name: task-a",
+					"Type: task",
+					"Statut: open",
+					"Due: ",
+					"Deadline: ",
+					"Completed on: ",
+					"Created on: ",
+					"Tags: ",
+					"Notes: ",
+				}, "\n"), nil
+			}
+			return "ok", nil
+		}}
 		setupTestRuntimeWithDB(t, fr)
 
 		setDate := newSetTaskDateCmd()
@@ -115,11 +131,14 @@ func TestTaskMetadataCommands(t *testing.T) {
 		}
 
 		scripts := strings.Join(fr.allScripts(), "\n")
-		if !strings.Contains(scripts, `set month of dueDateValue to March`) || !strings.Contains(scripts, `set due date of t to dueDateValue`) {
+		if !strings.Contains(scripts, `set month of dueDateValue to March`) || !strings.Contains(scripts, `schedule t for dueDateValue`) {
 			t.Fatalf("expected due date AppleScript update, got %s", scripts)
 		}
 		if !strings.Contains(scripts, "things:///update?auth-token=token-test") || !strings.Contains(scripts, "&deadline=2026-03-07") {
 			t.Fatalf("expected deadline URL update, got %s", scripts)
+		}
+		if !strings.Contains(scripts, "things:///update?auth-token=token-test") || !strings.Contains(scripts, "&when=") {
+			t.Fatalf("expected due clear URL update, got %s", scripts)
 		}
 	})
 
