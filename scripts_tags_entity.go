@@ -18,7 +18,7 @@ func scriptAddTag(bundleID, name, parent string) string {
 	return fmt.Sprintf(`tell application id "%s"
   set t to make new tag with properties {name:"%s"}
   if "%s" is not "" then
-    set parent tag of t to tag "%s"
+    set parent tag of t to first tag whose name is "%s"
   end if
   return name of t
 end tell`, bundleID, escapeApple(name), escapeApple(parent), escapeApple(parent))
@@ -30,7 +30,7 @@ func scriptEditTag(bundleID, name, newName, parent string, parentChanged bool) s
 		parentChangedText = "true"
 	}
 	return fmt.Sprintf(`tell application id "%s"
-  set t to tag "%s"
+  set t to first tag whose name is "%s"
   if "%s" is not "" then
     set name of t to "%s"
   end if
@@ -38,7 +38,7 @@ func scriptEditTag(bundleID, name, newName, parent string, parentChanged bool) s
     if "%s" is "" then
       set parent tag of t to missing value
     else
-      set parent tag of t to tag "%s"
+      set parent tag of t to first tag whose name is "%s"
     end if
   end if
   return name of t
@@ -47,7 +47,7 @@ end tell`, bundleID, escapeApple(name), escapeApple(newName), escapeApple(newNam
 
 func scriptDeleteTag(bundleID, name string) string {
 	return fmt.Sprintf(`tell application id "%s"
-  set t to tag "%s"
+  set t to first tag whose name is "%s"
   delete t
   return "ok"
 end tell`, bundleID, escapeApple(name))
