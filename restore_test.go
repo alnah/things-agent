@@ -278,6 +278,63 @@ func TestRestoreExecutorTimesOutIfAppDoesNotStop(t *testing.T) {
 	}
 }
 
+func TestRestoreExecutorAppliesQuiesceGuardDelayAfterStop(t *testing.T) {
+	tmp := t.TempDir()
+	writeLiveDBSet(t, tmp, "before")
+
+	bm := newBackupManager(tmp)
+	created, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	targetTS := inferTimestamp(created[0])
+	writeLiveDBSet(t, tmp, "after")
+
+	var slept []time.Duration
+	app := &fakeAppController{running: []bool{true, true, false, false}}
+	exec := newTestRestoreExecutor(bm, app)
+	exec.quiesceGracePeriod = 5 * time.Millisecond
+	exec.sleep = func(d time.Duration) {
+		slept = append(slept, d)
+	}
+
+	if _, err := exec.Restore(context.Background(), targetTS); err != nil {
+		t.Fatalf("restore failed: %v", err)
+	}
+
+	foundGuard := false
+	for _, d := range slept {
+		if d == exec.quiesceGracePeriod {
+			foundGuard = true
+			break
+		}
+	}
+	if !foundGuard {
+		t.Fatalf("expected quiesce grace period sleep, got %#v", slept)
+	}
+}
+
+func TestRestoreExecutorFailsWhenAppRestartsDuringQuiesce(t *testing.T) {
+	tmp := t.TempDir()
+	writeLiveDBSet(t, tmp, "before")
+
+	bm := newBackupManager(tmp)
+	created, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	targetTS := inferTimestamp(created[0])
+
+	app := &fakeAppController{running: []bool{true, true, false, true}}
+	exec := newTestRestoreExecutor(bm, app)
+	exec.quiesceGracePeriod = time.Millisecond
+
+	_, err = exec.Restore(context.Background(), targetTS)
+	if err == nil || !strings.Contains(err.Error(), "restarted during quiescence") {
+		t.Fatalf("expected restart during quiescence error, got %v", err)
+	}
+}
+
 func TestRestoreExecutorWaitsForStableFiles(t *testing.T) {
 	tmp := t.TempDir()
 	writeLiveDBSet(t, tmp, "before")

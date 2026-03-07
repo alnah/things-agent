@@ -16,6 +16,7 @@ const (
 	restoreStopTimeout     = 5 * time.Second
 	restoreStabilityTimeout = 2 * time.Second
 	restoreStablePasses    = 2
+	restoreQuiesceGracePeriod = 300 * time.Millisecond
 )
 
 type appController interface {
@@ -66,6 +67,7 @@ type restoreExecutor struct {
 	stopTimeout      time.Duration
 	stabilityTimeout time.Duration
 	stablePasses     int
+	quiesceGracePeriod time.Duration
 	captureFileState func(string) ([]liveFileState, error)
 }
 
@@ -138,6 +140,7 @@ func newRestoreExecutor(cfg *runtimeConfig) *restoreExecutor {
 		stopTimeout:      restoreStopTimeout,
 		stabilityTimeout: restoreStabilityTimeout,
 		stablePasses:     restoreStablePasses,
+		quiesceGracePeriod: restoreQuiesceGracePeriod,
 		captureFileState: captureLiveFileState,
 	}
 }
@@ -173,23 +176,17 @@ func (r *restoreExecutor) Execute(ctx context.Context, timestamp string, dryRun 
 		return journal, nil
 	}
 
-	if preflight.AppRunning {
-		if err := r.app.Quit(ctx, r.bundleID); err != nil {
-			journal.Steps = append(journal.Steps, restoreJournalStep{Name: "quiesce", Status: "failed", Error: err.Error()})
-			return journal, err
+	if err := r.quiesce(ctx, preflight.AppRunning); err != nil {
+		stepStatus := "failed"
+		stepName := "quiesce"
+		if !preflight.AppRunning {
+			stepName = "stable-files"
 		}
-		if err := r.waitForStopped(ctx); err != nil {
-			journal.Steps = append(journal.Steps, restoreJournalStep{Name: "quiesce", Status: "failed", Error: err.Error()})
-			return journal, err
-		}
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "quiesce", Status: "ok"})
-	} else {
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "quiesce", Status: "skipped"})
-	}
-
-	if err := r.waitForStableFiles(ctx); err != nil {
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "stable-files", Status: "failed", Error: err.Error()})
+		journal.Steps = append(journal.Steps, restoreJournalStep{Name: stepName, Status: stepStatus, Error: err.Error()})
 		return journal, err
+	}
+	if preflight.AppRunning {
+		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "quiesce", Status: "ok"})
 	}
 	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "stable-files", Status: "ok"})
 
@@ -287,7 +284,7 @@ func (r *restoreExecutor) Preflight(ctx context.Context, timestamp string) (rest
 	report.BackupWritable = true
 
 	if !wasRunning {
-		if err := r.waitForStableFiles(ctx); err != nil {
+		if err := r.quiesce(ctx, false); err != nil {
 			return report, fmt.Errorf("preflight stable files: %w", err)
 		}
 		report.LiveFilesStable = true
@@ -365,6 +362,31 @@ func (r *restoreExecutor) waitForStableFiles(ctx context.Context) error {
 		}
 		r.sleep(r.pollInterval)
 	}
+}
+
+func (r *restoreExecutor) quiesce(ctx context.Context, wasRunning bool) error {
+	if wasRunning {
+		if err := r.app.Quit(ctx, r.bundleID); err != nil {
+			return err
+		}
+		if err := r.waitForStopped(ctx); err != nil {
+			return err
+		}
+		if r.quiesceGracePeriod > 0 {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			r.sleep(r.quiesceGracePeriod)
+		}
+		running, err := r.app.IsRunning(ctx, r.bundleID)
+		if err != nil {
+			return err
+		}
+		if running {
+			return errors.New("Things restarted during quiescence")
+		}
+	}
+	return r.waitForStableFiles(ctx)
 }
 
 func (r *restoreExecutor) ensureBackupWritable() error {
