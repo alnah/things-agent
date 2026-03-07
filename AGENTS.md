@@ -46,6 +46,11 @@ This file defines operating rules for the **things-agent** repository (Things 3 
 - `checklist item`: a lightweight native checklist line inside a task.
 - `child task`: a structured child to-do under a project.
 
+## Language rules
+
+- If the agent writes in a language other than English, it must use that language correctly, including accents, diacritics, punctuation, and spacing conventions.
+- For French, Portuguese, and similar languages, the agent must not strip accents or replace language-specific punctuation with English-only approximations.
+
 ## Full CLI Command Inventory
 
 The agent should treat this table as the current command surface of the CLI.

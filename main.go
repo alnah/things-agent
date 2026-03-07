@@ -13,7 +13,7 @@ const (
 	backupDirName     = "backups"
 	backupTSFormat    = "2006-01-02:15-04-05"
 	maxBackupsToKeep  = 50
-	cliVersion        = "0.3.12"
+	cliVersion        = "0.3.13"
 	thingsDataPattern = "Library/Group Containers/*.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase"
 )
 
