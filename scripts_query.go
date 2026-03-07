@@ -11,6 +11,12 @@ func scriptAllLists(bundleID string) string {
 end tell`, bundleID)
 }
 
+func scriptAllAreas(bundleID string) string {
+	return fmt.Sprintf(`tell application id "%s"
+  get name of areas
+end tell`, bundleID)
+}
+
 func scriptResolveItemRef(taskName, taskID string) string {
 	taskName = escapeApple(strings.TrimSpace(taskName))
 	taskID = escapeApple(strings.TrimSpace(taskID))

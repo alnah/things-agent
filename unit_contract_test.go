@@ -11,6 +11,10 @@ func TestUnitContracts(t *testing.T) {
 		root := newRootCmd()
 
 		required := []string{
+			"areas",
+			"add-area",
+			"edit-area",
+			"delete-area",
 			"add-checklist-item",
 			"list-child-tasks",
 			"add-child-task",
@@ -26,6 +30,9 @@ func TestUnitContracts(t *testing.T) {
 		}
 
 		for _, name := range []string{
+			"add-list",
+			"edit-list",
+			"delete-list",
 			"add-subtask",
 			"list-subtasks",
 			"edit-checklist-item",
@@ -126,6 +133,9 @@ func TestUnitContracts(t *testing.T) {
 		}
 
 		for _, needle := range []string{
+			"add-list",
+			"edit-list",
+			"delete-list",
 			"add-subtask",
 			"list-subtasks",
 			"edit-checklist-item",

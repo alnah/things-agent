@@ -60,6 +60,13 @@ func TestScriptAllProjectsStructured(t *testing.T) {
 	}
 }
 
+func TestScriptAllAreas(t *testing.T) {
+	got := scriptAllAreas("bundle.id")
+	if !strings.Contains(got, `get name of areas`) {
+		t.Fatalf("unexpected areas script: %s", got)
+	}
+}
+
 func TestScriptSemanticSnapshot(t *testing.T) {
 	got := scriptSemanticSnapshot("bundle.id")
 	if !strings.Contains(got, `repeat with l in every list`) || !strings.Contains(got, `repeat with p in every project`) || !strings.Contains(got, `count of to dos`) {

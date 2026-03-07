@@ -22,9 +22,9 @@ func newAddProjectCmd() *cobra.Command {
 			if strings.TrimSpace(name) == "" {
 				return errors.New("--name is required")
 			}
-			areaName = resolveDestinationListName(areaName)
+			areaName = strings.TrimSpace(areaName)
 			if areaName == "" {
-				return errors.New("destination is required: use --area or THINGS_DEFAULT_LIST")
+				return errors.New("destination is required: use --area")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -39,10 +39,10 @@ func newAddProjectCmd() *cobra.Command {
 	return cmd
 }
 
-func newAddListCmd() *cobra.Command {
+func newAddAreaCmd() *cobra.Command {
 	var name string
 	cmd := &cobra.Command{
-		Use:   "add-list",
+		Use:   "add-area",
 		Short: "Add an area",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -72,7 +72,7 @@ func newEditProjectCmd() *cobra.Command {
 	var sourceName, sourceID, newName, notes string
 	cmd := &cobra.Command{
 		Use:   "edit-project",
-		Short: "Edit a project (by name)",
+		Short: "Edit a project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -99,10 +99,10 @@ func newEditProjectCmd() *cobra.Command {
 	return cmd
 }
 
-func newEditListCmd() *cobra.Command {
+func newEditAreaCmd() *cobra.Command {
 	var sourceName, newName string
 	cmd := &cobra.Command{
-		Use:   "edit-list",
+		Use:   "edit-area",
 		Short: "Rename an area",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -159,15 +159,15 @@ func newDeleteProjectCmd() *cobra.Command {
 	return cmd
 }
 
-func newDeleteListCmd() *cobra.Command {
-	return newDeleteCmd("list", "delete-list")
+func newDeleteAreaCmd() *cobra.Command {
+	return newDeleteCmd("list", "delete-area", "Delete an area")
 }
 
-func newDeleteCmd(kind, name string) *cobra.Command {
+func newDeleteCmd(kind, name, short string) *cobra.Command {
 	var target string
 	cmd := &cobra.Command{
 		Use:   name,
-		Short: "Delete an item",
+		Short: short,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)

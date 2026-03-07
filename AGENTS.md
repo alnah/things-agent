@@ -37,6 +37,15 @@ This file defines operating rules for the **things-agent** repository (Things 3 
 - On failure, clearly report the executed command and returned error.
 - Avoid non-idempotent destructive operations without backup.
 
+## Domain glossary
+
+- `area`: a user-managed Things area. High-level CRUD and move commands use `area`.
+- `list`: a generic Things list name used for read filters and the official URL Scheme. This includes built-in lists such as `Inbox`, `Today`, `Logbook`, and `Archive`, plus area names where the Things API expects a generic list selector.
+- `project`: a Things project.
+- `task`: a top-level to-do.
+- `checklist item`: a lightweight native checklist line inside a task.
+- `child task`: a structured child to-do under a project.
+
 ## Full CLI Command Inventory
 
 The agent should treat this table as the current command surface of the CLI.
@@ -51,6 +60,7 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]` | Validate restore readiness without mutating live files | no | Read operation for restore safety |
 | `things-agent restore list [--json]` | List available snapshots | no | Read operation for restore inventory |
 | `things-agent restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | Verify that live files match a snapshot | no | Read operation with per-file verification details |
+| `things-agent areas` | List Things areas | no | Read operation |
 | `things-agent lists` | List Things areas and built-in lists | no | Read operation |
 | `things-agent projects [--json]` | List projects | no | Read operation |
 | `things-agent tags list [--query <text>]` | List tags | no | Read operation |
@@ -58,8 +68,8 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent tags add --name <name> [--parent <name>]` | Create a tag | yes | Write operation |
 | `things-agent tags edit --name <name> ...` | Edit a tag name/parent | yes | Write operation |
 | `things-agent tags delete --name <name>` | Delete a tag | yes | Destructive |
-| `things-agent tasks [--list <name>] [--query <text>] [--json]` | List tasks with optional filters | no | Read operation |
-| `things-agent search --query <text> [--list <name>] [--json]` | Search tasks | no | Read operation |
+| `things-agent tasks [--list <name>] [--query <text>] [--json]` | List tasks with optional filters | no | `--list` is a generic Things list filter and may target a built-in list or an area |
+| `things-agent search --query <text> [--list <name>] [--json]` | Search tasks | no | `--list` is a generic Things list filter and may target a built-in list or an area |
 | `things-agent show-task (--name <name> | --id <id>) [--with-child-tasks] [--json]` | Show full task/project details | no | Includes metadata and optional child tasks |
 | `things-agent add-task --area <name> ...` / `things-agent add-task --project <name> ...` | Create a task | yes | Write operation with explicit destination; `--checklist-items` creates a native checklist |
 | `things-agent edit-task (--name <name> | --id <id>) ...` | Edit a task | yes | Write operation |
@@ -73,13 +83,13 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent set-task-notes (--name <name> | --id <id>) --notes <text>` | Replace task notes | yes | Write operation |
 | `things-agent append-task-notes (--name <name> | --id <id>) --notes <text>` | Append task notes | yes | Write operation |
 | `things-agent set-task-date (--name <name> | --id <id>) ...` | Set/clear due/deadline | yes | Write operation |
-| `things-agent add-project --name <name> [--area <area>]` | Create project | yes | Write operation |
+| `things-agent add-project --name <name> --area <area>` | Create project | yes | Write operation |
 | `things-agent edit-project (--name <name> | --id <id>) ...` | Edit project | yes | Write operation |
 | `things-agent delete-project (--name <name> | --id <id>)` | Delete project | yes | Destructive |
 | `things-agent move-project (--name <name> | --id <id>) (--to-area <name> | --to-area-id <id>)` | Move project to another area | yes | Write operation |
-| `things-agent add-list --name <name>` | Create area | yes | Write operation |
-| `things-agent edit-list --name <name> --new-name <name>` | Rename area | yes | Write operation |
-| `things-agent delete-list --name <name>` | Delete area | yes | Destructive |
+| `things-agent add-area --name <name>` | Create area | yes | Write operation |
+| `things-agent edit-area --name <name> --new-name <name>` | Rename area | yes | Write operation |
+| `things-agent delete-area --name <name>` | Delete area | yes | Destructive |
 | `things-agent reorder-area-items (--area <name> | --area-id <id>) --ids <csv>` | Reorder area items | yes | Uses private/experimental Things AppleScript backend; live testing shows projects still stay before tasks |
 | `things-agent add-checklist-item (--task <name> | --task-id <id>) --name <name>` | Add checklist item | yes | Requires token |
 | `things-agent move-task (--name <name> | --id <id>) (--to-area <name> | --to-area-id <id> | --to-project <name> | --to-project-id <id> | --to-heading <name> | --to-heading-id <id>)` | Move task to another area, project, or existing heading | yes | Write operation via official URL update |
@@ -119,6 +129,7 @@ The agent should treat this table as the current command surface of the CLI.
   - Delete a project
 - Areas:
   - List areas
+  - Inspect all Things list containers with `things-agent lists` when a read filter needs a localized built-in list name
   - Add an area
   - Edit an area
   - Delete an area

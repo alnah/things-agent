@@ -49,6 +49,10 @@ func TestBasicReadCommands(t *testing.T) {
 	fr := &fakeRunner{output: "ok"}
 	setupTestRuntime(t, t.TempDir(), fr)
 
+	areas := newAreasCmd()
+	if err := areas.Execute(); err != nil {
+		t.Fatalf("areas failed: %v", err)
+	}
 	lists := newListsCmd()
 	if err := lists.Execute(); err != nil {
 		t.Fatalf("lists failed: %v", err)

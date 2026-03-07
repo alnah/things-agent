@@ -23,14 +23,14 @@ func TestProjectListCommands(t *testing.T) {
 			t.Fatalf("add-project failed: %v", err)
 		}
 
-		addList := newAddListCmd()
-		addList.SetArgs([]string{"--name", "area1"})
-		stdout, err := captureStdout(t, addList.Execute)
+		addArea := newAddAreaCmd()
+		addArea.SetArgs([]string{"--name", "area1"})
+		stdout, err := captureStdout(t, addArea.Execute)
 		if err != nil {
-			t.Fatalf("add-list failed: %v", err)
+			t.Fatalf("add-area failed: %v", err)
 		}
 		if !strings.Contains(stdout, "area-1") {
-			t.Fatalf("expected add-list to print created area id, got %q", stdout)
+			t.Fatalf("expected add-area to print created area id, got %q", stdout)
 		}
 
 		editProject := newEditProjectCmd()
@@ -39,10 +39,10 @@ func TestProjectListCommands(t *testing.T) {
 			t.Fatalf("edit-project failed: %v", err)
 		}
 
-		editList := newEditListCmd()
-		editList.SetArgs([]string{"--name", "area1", "--new-name", "area2"})
-		if err := editList.Execute(); err != nil {
-			t.Fatalf("edit-list failed: %v", err)
+		editArea := newEditAreaCmd()
+		editArea.SetArgs([]string{"--name", "area1", "--new-name", "area2"})
+		if err := editArea.Execute(); err != nil {
+			t.Fatalf("edit-area failed: %v", err)
 		}
 
 		deleteProject := newDeleteProjectCmd()
@@ -51,10 +51,10 @@ func TestProjectListCommands(t *testing.T) {
 			t.Fatalf("delete-project failed: %v", err)
 		}
 
-		deleteList := newDeleteListCmd()
-		deleteList.SetArgs([]string{"--name", "area2"})
-		if err := deleteList.Execute(); err != nil {
-			t.Fatalf("delete-list failed: %v", err)
+		deleteArea := newDeleteAreaCmd()
+		deleteArea.SetArgs([]string{"--name", "area2"})
+		if err := deleteArea.Execute(); err != nil {
+			t.Fatalf("delete-area failed: %v", err)
 		}
 
 		scripts := fr.allScripts()
@@ -96,9 +96,9 @@ func TestProjectListCommands(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		editList := newEditListCmd()
-		editList.SetArgs([]string{"--name", "area"})
-		err = editList.Execute()
+		editArea := newEditAreaCmd()
+		editArea.SetArgs([]string{"--name", "area"})
+		err = editArea.Execute()
 		if err == nil || !strings.Contains(err.Error(), "--new-name is required") {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -110,9 +110,9 @@ func TestProjectListCommands(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		addList := newAddListCmd()
-		addList.SetArgs([]string{"--name", "   "})
-		err = addList.Execute()
+		addArea := newAddAreaCmd()
+		addArea.SetArgs([]string{"--name", "   "})
+		err = addArea.Execute()
 		if err == nil || !strings.Contains(err.Error(), "--name is required") {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -136,7 +136,7 @@ func TestProjectListCommands(t *testing.T) {
 	t.Run("delete unknown kind errors", func(t *testing.T) {
 		fr := &fakeRunner{output: "ok"}
 		setupTestRuntimeWithDB(t, fr)
-		cmd := newDeleteCmd("unknown-kind", "delete-unknown")
+		cmd := newDeleteCmd("unknown-kind", "delete-unknown", "Delete an item")
 		cmd.SetArgs([]string{"--name", "x"})
 		err := cmd.Execute()
 		if err == nil || !strings.Contains(err.Error(), "unknown kind") {

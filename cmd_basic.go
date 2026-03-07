@@ -243,7 +243,7 @@ func newSessionStartCmd() *cobra.Command {
 func newListsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "lists",
-		Short: "List Things areas/lists",
+		Short: "List Things areas and built-in lists",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := resolveRuntimeConfig(ctx)
@@ -251,6 +251,21 @@ func newListsCmd() *cobra.Command {
 				return err
 			}
 			return runResult(ctx, cfg, scriptAllLists(cfg.bundleID))
+		},
+	}
+}
+
+func newAreasCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "areas",
+		Short: "List Things areas",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptAllAreas(cfg.bundleID))
 		},
 	}
 }
@@ -294,7 +309,7 @@ func newTasksCmd() *cobra.Command {
 			return runResult(ctx, cfg, scriptTasks(cfg.bundleID, listName, query))
 		},
 	}
-	cmd.Flags().StringVar(&listName, "list", "", "Domaine")
+	cmd.Flags().StringVar(&listName, "list", "", "Limit to a Things list or area")
 	cmd.Flags().StringVar(&query, "query", "", "Filter by name / notes")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
 	return cmd
@@ -322,7 +337,7 @@ func newSearchCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "Search text")
-	cmd.Flags().StringVar(&listName, "list", "", "Limit to area")
+	cmd.Flags().StringVar(&listName, "list", "", "Limit to a Things list or area")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
 	_ = cmd.MarkFlagRequired("query")
 	return cmd

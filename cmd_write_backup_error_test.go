@@ -11,9 +11,9 @@ func TestDestructiveCommandsReturnBackupErrorWhenDBIsMissing(t *testing.T) {
 		cmd  func() error
 	}{
 		{
-			name: "delete-list",
+			name: "delete-area",
 			cmd: func() error {
-				c := newDeleteListCmd()
+				c := newDeleteAreaCmd()
 				c.SetArgs([]string{"--name", "area"})
 				return c.Execute()
 			},

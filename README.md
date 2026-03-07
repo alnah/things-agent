@@ -30,7 +30,7 @@ It should also be usable from other local-agent setups (for example Cline), but 
 
 The CLI never accesses the Things SQLite database directly.
 Some native checklist operations (URL scheme `update`) require a Things auth token (`THINGS_AUTH_TOKEN` or `--auth-token`).
-List names are localized by Things, so use exact names from your own app language.
+Things uses both user areas and built-in lists (`Inbox`, `Today`, `Logbook`, etc.); this CLI uses `area` for the area entity and keeps `list` only for generic Things list filters and official URL parameters.
 For token, permissions, and list-locale errors, see [Troubleshooting](#troubleshooting).
 
 ## Installation
@@ -70,7 +70,7 @@ Use this project at your own risk.
 
 - Emptying Things trash is intentionally not exposed by the CLI.
 - This is a deliberate safety decision to avoid irreversible bulk deletion by script.
-- Deletion remains available item by item (`delete-task`, `delete-project`, `delete-list`) with backup beforehand.
+- Deletion remains available item by item (`delete-task`, `delete-project`, `delete-area`) with backup beforehand.
 - `session-start` backup is required in agent instructions before state-changing operations.
 - Backups are rotated and capped at 50 snapshots (about ~7 MB each on the author's machine).
 - `AGENTS.md` explicitly forbids direct SQLite access.
@@ -123,11 +123,21 @@ things-agent version
 things-agent session-start
 ```
 
+## Domain glossary
+
+- `area`: a user-managed Things area. High-level CRUD and move commands use `area`.
+- `list`: a generic Things list name used for read filters and the official URL Scheme. This includes built-in lists such as `Inbox`, `Today`, `Logbook`, and `Archive`, plus area names where the Things API expects a generic list selector.
+- `project`: a Things project.
+- `task`: a top-level to-do.
+- `checklist item`: a lightweight native checklist line inside a task.
+- `child task`: a structured child to-do under a project.
+
 ## Usage
 
 ```bash
 things-agent session-start
 things-agent backup
+things-agent areas
 things-agent restore list --json
 things-agent tasks --list "À classer"
 things-agent tasks --list "À classer" --json
@@ -136,6 +146,8 @@ things-agent search --query "Wagner" --json
 things-agent projects --json
 things-agent show-task --name "Say hello" --with-child-tasks --json
 things-agent show-task --id "<todo-id>" --json
+things-agent add-area --name "Learning"
+things-agent add-project --name "French Course" --area "Learning"
 things-agent add-task --name "Say hello" --notes "Message" --area "À classer"
 things-agent add-task --name "File chapter draft" --project "French Course"
 THINGS_DEFAULT_LIST="À classer" things-agent add-task --name "Uses env default list"
@@ -217,13 +229,13 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | Command group | Commands | Notes |
 | --- | --- | --- |
 | Session and backup | `session-start`, `backup`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--dry-run] [--json]`, `restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `restore` creates a pre-restore backup, quiesces Things, verifies files, rolls back on failure, and can emit a structured journal for the agent; auto-backups on ordinary writes are disabled |
-| Core listing/search | `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task (--name|--id) [--with-child-tasks] [--json]` | `--json` is intended for agent consumption |
+| Core listing/search | `areas`, `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task (--name|--id) [--with-child-tasks] [--json]` | `areas` lists area entities; `lists` lists areas plus built-in Things lists; `--list` is a generic Things list filter that may target a built-in list or an area; `--json` is intended for agent consumption |
 | Tag entities | `tags list`, `tags search`, `tags add`, `tags edit`, `tags delete` | Manage Things tags directly |
 | Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task (--name|--id)`, `delete-task (--name|--id)`, `complete-task (--name|--id)`, `uncomplete-task (--name|--id)` | Standard to-do operations with explicit destination on create; `--checklist-items` creates native checklist |
 | Task metadata | `set-task-notes (--name|--id)`, `append-task-notes (--name|--id)`, `set-task-date (--name|--id)` | Notes and date updates |
 | Tags | `set-tags (--name|--id)`, `set-task-tags (--name|--id)`, `add-task-tags (--name|--id)`, `remove-task-tags (--name|--id)` | Exact set and incremental updates |
-| Projects | `add-project [--area <name>]`, `edit-project (--name|--id)`, `delete-project (--name|--id)`, `move-project (--name|--id)` | Project CRUD and area moves |
-| Areas | `add-list`, `edit-list`, `delete-list`, `reorder-area-items (--area|--area-id)` | Area CRUD; reorder uses a private Things backend |
+| Projects | `add-project --area <name>`, `edit-project (--name|--id)`, `delete-project (--name|--id)`, `move-project (--name|--id)` | Project CRUD and area moves |
+| Areas | `add-area`, `edit-area`, `delete-area`, `reorder-area-items (--area|--area-id)` | Area CRUD; reorder uses a private Things backend |
 | Checklist items | `add-checklist-item (--task|--task-id)` | Native checklist write path; requires token |
 | Tasks | `move-task (--name|--id)` | Move to an area, project, or existing heading |
 | Child tasks | `list-child-tasks (--parent|--parent-id)`, `add-child-task (--parent|--parent-id)`, `edit-child-task (--id or --parent/--parent-id + --name/--index)`, `delete-child-task (--id or --parent/--parent-id + --name/--index)`, `complete-child-task (--id or --parent/--parent-id + --name/--index)`, `uncomplete-child-task (--id or --parent/--parent-id + --name/--index)`, `reorder-project-items (--project|--project-id)` | Explicit AppleScript child-task surface for projects; direct `--id` is supported for mutations; reorder uses a private Things backend |

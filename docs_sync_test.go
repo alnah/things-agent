@@ -16,8 +16,13 @@ func TestDocsSyncGate(t *testing.T) {
 		"things-agent url json",
 		"things-agent restore list",
 		"things-agent restore verify",
+		"things-agent areas",
 		"add-task --area",
 		"add-task --project",
+		"add-project --name <name> --area <area>",
+		"add-area --name <name>",
+		"edit-area --name <name> --new-name <name>",
+		"delete-area --name <name>",
 		"edit-task (--name <name> | --id <id>)",
 		"move-task (--name <name> | --id <id>)",
 		"move-project (--name <name> | --id <id>)",
@@ -40,6 +45,9 @@ func TestDocsSyncGate(t *testing.T) {
 		"move-project (--name <name> | --id <id>)",
 		"reorder-project-items (--project <name> | --project-id <id>) --ids <csv>",
 		"reorder-area-items (--area <name> | --area-id <id>) --ids <csv>",
+		"add-area --name <name>",
+		"edit-area --name <name> --new-name <name>",
+		"delete-area --name <name>",
 		"No stable backend is available yet for checklist-item reorder, heading reorder, or sidebar area reorder.",
 	}
 	for _, needle := range agentsRequired {
@@ -56,6 +64,8 @@ func TestDocsSyncGate(t *testing.T) {
 		"things-agent move-task --id",
 		"things-agent move-project --id",
 		"things-agent reorder-project-items --project-id",
+		"things-agent areas",
+		"things-agent add-area --name",
 		"The CLI can move a task to an existing heading with `move-task --to-heading` or `--to-heading-id`",
 	}
 	for _, needle := range readmeRequired {
@@ -67,6 +77,9 @@ func TestDocsSyncGate(t *testing.T) {
 	forbidden := []string{
 		"things-agent url add-json",
 		"restore --file",
+		"add-list --name <name>",
+		"edit-list --name <name> --new-name <name>",
+		"delete-list --name <name>",
 		"add-task --name \"Say hello\" --notes \"Message\" --list",
 		"add-project --name <name> [--list <area>]",
 		"list-checklist-items (--task <name> | --task-id <id>)",
