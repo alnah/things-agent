@@ -59,31 +59,31 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent tags delete --name <name>` | Delete a tag | yes | Destructive |
 | `things-agent tasks [--list <name>] [--query <text>] [--json]` | List tasks with optional filters | no | Read operation |
 | `things-agent search --query <text> [--list <name>] [--json]` | Search tasks | no | Read operation |
-| `things-agent show-task --name <name> [--json]` | Show full task/project details | no | Includes metadata |
+| `things-agent show-task (--name <name> | --id <id>) [--json]` | Show full task/project details | no | Includes metadata |
 | `things-agent add-task --area <name> ...` / `things-agent add-task --project <name> ...` | Create a task | yes | Write operation with explicit destination |
-| `things-agent edit-task ...` | Edit a task by name | yes | Write operation |
-| `things-agent delete-task --name <name>` | Delete a task | yes | Destructive |
-| `things-agent complete-task --name <name>` | Mark task completed | yes | Write operation |
-| `things-agent uncomplete-task --name <name>` | Mark task open again | yes | Write operation |
-| `things-agent set-tags --name <name> --tags <csv>` | Set tags on task/project | yes | Legacy generic setter |
-| `things-agent set-task-tags --name <name> --tags <csv>` | Replace task tags | yes | Exact set |
-| `things-agent add-task-tags --name <name> --tags <csv>` | Add task tags | yes | Merge behavior |
-| `things-agent remove-task-tags --name <name> --tags <csv>` | Remove task tags | yes | Partial remove |
-| `things-agent set-task-notes --name <name> --notes <text>` | Replace task notes | yes | Write operation |
-| `things-agent append-task-notes --name <name> --notes <text>` | Append task notes | yes | Write operation |
-| `things-agent set-task-date --name <name> ...` | Set/clear due/deadline | yes | Write operation |
+| `things-agent edit-task (--name <name> | --id <id>) ...` | Edit a task | yes | Write operation |
+| `things-agent delete-task (--name <name> | --id <id>)` | Delete a task | yes | Destructive |
+| `things-agent complete-task (--name <name> | --id <id>)` | Mark task completed | yes | Write operation |
+| `things-agent uncomplete-task (--name <name> | --id <id>)` | Mark task open again | yes | Write operation |
+| `things-agent set-tags (--name <name> | --id <id>) --tags <csv>` | Set tags on task/project | yes | Legacy generic setter |
+| `things-agent set-task-tags (--name <name> | --id <id>) --tags <csv>` | Replace task tags | yes | Exact set |
+| `things-agent add-task-tags (--name <name> | --id <id>) --tags <csv>` | Add task tags | yes | Merge behavior |
+| `things-agent remove-task-tags (--name <name> | --id <id>) --tags <csv>` | Remove task tags | yes | Partial remove |
+| `things-agent set-task-notes (--name <name> | --id <id>) --notes <text>` | Replace task notes | yes | Write operation |
+| `things-agent append-task-notes (--name <name> | --id <id>) --notes <text>` | Append task notes | yes | Write operation |
+| `things-agent set-task-date (--name <name> | --id <id>) ...` | Set/clear due/deadline | yes | Write operation |
 | `things-agent add-project --name <name> [--area <area>]` | Create project | yes | Write operation |
-| `things-agent edit-project --name <name> ...` | Edit project | yes | Write operation |
-| `things-agent delete-project --name <name>` | Delete project | yes | Destructive |
+| `things-agent edit-project (--name <name> | --id <id>) ...` | Edit project | yes | Write operation |
+| `things-agent delete-project (--name <name> | --id <id>)` | Delete project | yes | Destructive |
 | `things-agent add-list --name <name>` | Create area/list | yes | Write operation |
 | `things-agent edit-list --name <name> --new-name <name>` | Rename area/list | yes | Write operation |
 | `things-agent delete-list --name <name>` | Delete area/list | yes | Destructive |
-| `things-agent list-subtasks --task <name>` | List checklist/subtasks | no | Read operation |
-| `things-agent add-subtask --task <name> --name <name>` | Add checklist item | yes | Requires token |
-| `things-agent edit-subtask --task <name> ...` | Edit checklist item | yes | Write operation |
-| `things-agent delete-subtask --task <name> ...` | Delete checklist item | yes | Destructive |
-| `things-agent complete-subtask --task <name> ...` | Mark checklist item completed | yes | Write operation |
-| `things-agent uncomplete-subtask --task <name> ...` | Mark checklist item open | yes | Write operation |
+| `things-agent list-subtasks (--task <name> | --task-id <id>)` | List checklist/subtasks | no | Read operation |
+| `things-agent add-subtask (--task <name> | --task-id <id>) --name <name>` | Add checklist item | yes | Requires token |
+| `things-agent edit-subtask (--task <name> | --task-id <id>) ...` | Edit checklist item | yes | Write operation |
+| `things-agent delete-subtask (--task <name> | --task-id <id>) ...` | Delete checklist item | yes | Destructive |
+| `things-agent complete-subtask (--task <name> | --task-id <id>) ...` | Mark checklist item completed | yes | Write operation |
+| `things-agent uncomplete-subtask (--task <name> | --task-id <id>) ...` | Mark checklist item open | yes | Write operation |
 | `things-agent url add ...` | Things URL Scheme `add` | yes | Direct URL bridge |
 | `things-agent url update ...` | Things URL Scheme `update` | yes | Requires token |
 | `things-agent url add-project ...` | Things URL Scheme `add-project` | yes | Direct URL bridge |

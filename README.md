@@ -135,13 +135,14 @@ things-agent search --query "Wagner"
 things-agent search --query "Wagner" --json
 things-agent projects --json
 things-agent show-task --name "Say hello" --json
+things-agent show-task --id "<todo-id>" --json
 things-agent add-task --name "Say hello" --notes "Message" --area "À classer"
 things-agent add-task --name "File chapter draft" --project "French Course"
 THINGS_DEFAULT_LIST="À classer" things-agent add-task --name "Uses env default list"
 things-agent add-task --name "Native checklist" --subtasks "Point 1, Point 2" --auth-token "<token>"
-things-agent complete-task --name "Say hello"
-things-agent list-subtasks --task "Say hello"
-things-agent add-subtask --task "Say hello" --name "Review the message"
+things-agent complete-task --id "<todo-id>"
+things-agent list-subtasks --task-id "<todo-id>"
+things-agent add-subtask --task-id "<todo-id>" --name "Review the message"
 things-agent tags list
 things-agent tags search --query "work"
 things-agent tags add --name "urgent"
@@ -212,12 +213,12 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | Session and backup | `session-start`, `backup`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `restore` creates a pre-restore backup, quiesces Things, verifies files, and rolls back on failure |
 | Core listing/search | `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task --name <name> [--json]` | `--json` is intended for agent consumption |
 | Tag entities | `tags list`, `tags search`, `tags add`, `tags edit`, `tags delete` | Manage Things tags directly |
-| Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task`, `delete-task`, `complete-task`, `uncomplete-task` | Standard to-do operations with explicit destination on create |
-| Task metadata | `set-task-notes`, `append-task-notes`, `set-task-date` | Notes and date updates |
-| Tags | `set-tags`, `set-task-tags`, `add-task-tags`, `remove-task-tags` | Exact set and incremental updates |
-| Projects | `add-project [--area <name>]`, `edit-project`, `delete-project` | Project CRUD |
+| Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task (--name|--id)`, `delete-task (--name|--id)`, `complete-task (--name|--id)`, `uncomplete-task (--name|--id)` | Standard to-do operations with explicit destination on create |
+| Task metadata | `set-task-notes (--name|--id)`, `append-task-notes (--name|--id)`, `set-task-date (--name|--id)` | Notes and date updates |
+| Tags | `set-tags (--name|--id)`, `set-task-tags (--name|--id)`, `add-task-tags (--name|--id)`, `remove-task-tags (--name|--id)` | Exact set and incremental updates |
+| Projects | `add-project [--area <name>]`, `edit-project (--name|--id)`, `delete-project (--name|--id)` | Project CRUD |
 | Areas/lists | `add-list`, `edit-list`, `delete-list` | Area/list CRUD |
-| Subtasks/checklist | `add-subtask`, `edit-subtask`, `delete-subtask`, `complete-subtask`, `uncomplete-subtask`, `list-subtasks` | `add-subtask` uses native checklist and requires token |
+| Subtasks/checklist | `add-subtask (--task|--task-id)`, `edit-subtask (--task|--task-id)`, `delete-subtask (--task|--task-id)`, `complete-subtask (--task|--task-id)`, `uncomplete-subtask (--task|--task-id)`, `list-subtasks (--task|--task-id)` | `add-subtask` uses native checklist and requires token |
 | URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|json` | Direct mapping of Things URL Scheme |
 | CLI info | `version` | Print CLI version |
 | Checklist shortcut | `add-task --subtasks "a, b"` | Creates native checklist, requires `--auth-token` or `THINGS_AUTH_TOKEN` |
