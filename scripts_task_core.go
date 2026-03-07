@@ -15,7 +15,7 @@ func taskPropertyParts(name, notes, tags string) []string {
 		parts = append(parts, fmt.Sprintf(`notes:"%s"`, escapeApple(notes)))
 	}
 	if strings.TrimSpace(tags) != "" {
-		parts = append(parts, fmt.Sprintf(`tag names:"%s"`, escapeApple(tags)))
+		parts = append(parts, fmt.Sprintf(`tag names:"%s"`, escapeApple(strings.Join(parseCSVList(tags), ", "))))
 	}
 	return parts
 }
@@ -144,7 +144,7 @@ func scriptEditTask(bundleID, sourceName, sourceID, newName, notes, tags, moveTo
 	}
 	if strings.TrimSpace(tags) != "" {
 		script += fmt.Sprintf(`  set tag names of t to "%s"
-`, escapeApple(tags))
+`, escapeApple(strings.Join(parseCSVList(tags), ", ")))
 	}
 	if strings.TrimSpace(moveTo) != "" {
 		script += fmt.Sprintf(`  move t to end of to dos of (first list whose name is "%s")

@@ -125,7 +125,7 @@ func TestScriptEditTaskWithAllOptionalFields(t *testing.T) {
 	wantParts := []string{
 		`set name of t to "new-name"`,
 		`set notes of t to "new-notes"`,
-		`set tag names of t to "a,b"`,
+		`set tag names of t to "a, b"`,
 		`move t to end of to dos of (first list whose name is "Inbox")`,
 		`set due date of t to date "2026-03-06 00:00:00"`,
 		`set completion date of t to date "2026-03-07 00:00:00"`,

@@ -8,6 +8,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func readCurrentTaskItem(cmd *cobra.Command, cfg *runtimeConfig, name, id string) (readItem, error) {
+	out, err := cfg.runner.run(cmd.Context(), scriptShowTask(cfg.bundleID, name, id, false))
+	if err != nil {
+		return readItem{}, err
+	}
+	item, err := parseShowTaskOutput(strings.TrimSpace(out))
+	if err != nil {
+		return readItem{}, fmt.Errorf("read current task tags: %w", err)
+	}
+	return item, nil
+}
+
+func filterTagList(existing, removals []string) []string {
+	removeSet := make(map[string]struct{}, len(removals))
+	for _, tag := range removals {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		removeSet[tag] = struct{}{}
+	}
+	filtered := make([]string, 0, len(existing))
+	for _, tag := range existing {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		if _, ok := removeSet[tag]; ok {
+			continue
+		}
+		filtered = append(filtered, tag)
+	}
+	return filtered
+}
+
 func newSetTagsCmd() *cobra.Command {
 	var name, id, tags string
 	cmd := &cobra.Command{
@@ -26,13 +61,17 @@ func newSetTagsCmd() *cobra.Command {
 			if strings.TrimSpace(tags) == "" {
 				return errors.New("--tags is required")
 			}
+			tagList := parseCSVList(tags)
+			if len(tagList) == 0 {
+				return errors.New("specify at least one tag in --tags")
+			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
 			script := fmt.Sprintf(`tell application id "%s"
 %s  set tag names of t to "%s"
   return id of t
-end tell`, cfg.bundleID, scriptResolveItemRef(name, id), escapeApple(tags))
+end tell`, cfg.bundleID, scriptResolveItemRef(name, id), escapeApple(strings.Join(tagList, ", ")))
 			return runResult(ctx, cfg, script)
 		},
 	}
@@ -65,10 +104,22 @@ func newSetTaskTagsCmd() *cobra.Command {
 			if len(tagList) == 0 {
 				return errors.New("specify at least one tag in --tags")
 			}
+			item, err := readCurrentTaskItem(cmd, cfg, name, id)
+			if err != nil {
+				return err
+			}
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptSetTaskTags(cfg.bundleID, name, id, tagList))
+			return runThingsURL(ctx, cfg, "update", map[string]string{
+				"auth-token": token,
+				"id":         item.ID,
+				"tags":       strings.Join(tagList, ", "),
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -100,10 +151,22 @@ func newAddTaskTagsCmd() *cobra.Command {
 			if len(tagList) == 0 {
 				return errors.New("specify at least one tag in --tags")
 			}
+			item, err := readCurrentTaskItem(cmd, cfg, name, id)
+			if err != nil {
+				return err
+			}
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptAddTaskTags(cfg.bundleID, name, id, tagList))
+			return runThingsURL(ctx, cfg, "update", map[string]string{
+				"auth-token": token,
+				"id":         item.ID,
+				"add-tags":   strings.Join(tagList, ", "),
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -135,10 +198,22 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 			if len(tagList) == 0 {
 				return errors.New("specify at least one tag in --tags")
 			}
+			item, err := readCurrentTaskItem(cmd, cfg, name, id)
+			if err != nil {
+				return err
+			}
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptRemoveTaskTags(cfg.bundleID, name, id, tagList))
+			return runThingsURL(ctx, cfg, "update", map[string]string{
+				"auth-token": token,
+				"id":         item.ID,
+				"tags":       strings.Join(filterTagList(item.Tags, tagList), ", "),
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")

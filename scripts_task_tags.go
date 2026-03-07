@@ -22,17 +22,21 @@ func scriptAddTaskTags(bundleID, taskName, taskID string, tags []string) string 
   if existingTags is missing value then
     set existingTags to {}
   else if class of existingTags is text then
-    set existingTags to {existingTags as string}
+    if (existingTags as string) is "" then
+      set existingTags to {}
+    else
+      set AppleScript's text item delimiters to ", "
+      set existingTags to text items of (existingTags as string)
+      set AppleScript's text item delimiters to ""
+    end if
   end if
   repeat with aTag in %s
-    if not (aTag is in existingTags) then
-      set end of existingTags to (aTag as string)
+    set normalizedTag to aTag as string
+    if not (normalizedTag is in existingTags) then
+      set end of existingTags to normalizedTag
     end if
   end repeat
-  set AppleScript's text item delimiters to ", "
-  set mergedTagsText to existingTags as text
-  set AppleScript's text item delimiters to ""
-  set tag names of t to mergedTagsText
+  set tag names of t to existingTags
   return id of t
 end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), scriptListLiteral(tags))
 }
@@ -46,18 +50,22 @@ func scriptRemoveTaskTags(bundleID, taskName, taskID string, tags []string) stri
   if existingTags is missing value then
     set existingTags to {}
   else if class of existingTags is text then
-    set existingTags to {existingTags as string}
+    if (existingTags as string) is "" then
+      set existingTags to {}
+    else
+      set AppleScript's text item delimiters to ", "
+      set existingTags to text items of (existingTags as string)
+      set AppleScript's text item delimiters to ""
+    end if
   end if
   set filteredTags to {}
   repeat with aTag in existingTags
-    if not (aTag is in %s) then
-      set end of filteredTags to aTag
+    set normalizedTag to aTag as string
+    if not (normalizedTag is in %s) then
+      set end of filteredTags to normalizedTag
     end if
   end repeat
-  set AppleScript's text item delimiters to ", "
-  set filteredTagsText to filteredTags as text
-  set AppleScript's text item delimiters to ""
-  set tag names of t to filteredTagsText
+  set tag names of t to filteredTags
   return id of t
 end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), scriptListLiteral(tags))
 }

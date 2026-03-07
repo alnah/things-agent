@@ -7,7 +7,22 @@ import (
 
 func TestTaskMetadataCommands(t *testing.T) {
 	t.Run("tag commands success", func(t *testing.T) {
-		fr := &fakeRunner{output: "ok"}
+		fr := &fakeRunner{runFn: func(script string) (string, error) {
+			if strings.Contains(script, `set out to "ID: "`) {
+				return strings.Join([]string{
+					"ID: task-1",
+					"Name: task-a",
+					"Type: task",
+					"Statut: open",
+					"Due: ",
+					"Completed on: ",
+					"Created on: ",
+					"Tags: a",
+					"Notes: ",
+				}, "\n"), nil
+			}
+			return "ok", nil
+		}}
 		setupTestRuntimeWithDB(t, fr)
 
 		setTags := newSetTagsCmd()
@@ -35,8 +50,18 @@ func TestTaskMetadataCommands(t *testing.T) {
 		}
 
 		scripts := fr.allScripts()
-		if len(scripts) < 4 {
-			t.Fatalf("expected 4 scripts, got %d", len(scripts))
+		if len(scripts) < 6 {
+			t.Fatalf("expected at least 6 scripts, got %d", len(scripts))
+		}
+		joined := strings.Join(scripts, "\n")
+		if !strings.Contains(joined, `set tag names of t to "a, b"`) {
+			t.Fatalf("expected exact tag set script, got %s", joined)
+		}
+		if !strings.Contains(joined, "things:///update?auth-token=token-test") || !strings.Contains(joined, "add-tags=c") {
+			t.Fatalf("expected add-task-tags URL update, got %s", joined)
+		}
+		if !strings.Contains(joined, "things:///update?auth-token=token-test") || !strings.Contains(joined, "tags=") {
+			t.Fatalf("expected remove-task-tags URL update, got %s", joined)
 		}
 	})
 
