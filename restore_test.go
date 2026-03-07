@@ -16,6 +16,7 @@ type fakeAppController struct {
 	running       []bool
 	quitCalls     int
 	activateCalls int
+	activateWait  <-chan struct{}
 	quitFn        func()
 	activateFn    func()
 	quitErr       error
@@ -49,14 +50,24 @@ func (f *fakeAppController) Quit(_ context.Context, _ string) error {
 	return f.quitErr
 }
 
-func (f *fakeAppController) Activate(_ context.Context, _ string) error {
+func (f *fakeAppController) Activate(ctx context.Context, _ string) error {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.activateCalls++
-	if f.activateFn != nil {
-		f.activateFn()
+	wait := f.activateWait
+	fn := f.activateFn
+	err := f.activateErr
+	f.mu.Unlock()
+	if wait != nil {
+		select {
+		case <-wait:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
-	return f.activateErr
+	if fn != nil {
+		fn()
+	}
+	return err
 }
 
 func (f *fakeAppController) counts() (int, int) {
@@ -97,14 +108,17 @@ func testSemanticSnapshot(lists, projects, tasks int) backupSemanticSnapshot {
 
 func newTestRestoreExecutor(bm *backupManager, app appController) *restoreExecutor {
 	return &restoreExecutor{
-		backups:          bm,
-		bundleID:         defaultBundleID,
-		app:              app,
-		sleep:            func(time.Duration) {},
-		pollInterval:     time.Millisecond,
-		stopTimeout:      time.Second,
-		stabilityTimeout: time.Second,
-		stablePasses:     2,
+		backups:             bm,
+		bundleID:            defaultBundleID,
+		app:                 app,
+		sleep:               func(time.Duration) {},
+		pollInterval:        time.Millisecond,
+		stopTimeout:         time.Second,
+		stabilityTimeout:    time.Second,
+		stablePasses:        2,
+		launchTimeout:       time.Second,
+		semanticTimeout:     time.Second,
+		fullSemanticTimeout: time.Second,
 		captureFileState: func(string) ([]liveFileState, error) {
 			return []liveFileState{
 				{Name: "main.sqlite", Size: 1, ModTime: 1},
@@ -113,6 +127,9 @@ func newTestRestoreExecutor(bm *backupManager, app appController) *restoreExecut
 			}, nil
 		},
 		semanticCheck: func(context.Context) (backupSemanticSnapshot, error) {
+			return testSemanticSnapshot(1, 0, 0), nil
+		},
+		fullSemanticCheck: func(context.Context) (backupSemanticSnapshot, error) {
 			return testSemanticSnapshot(1, 0, 0), nil
 		},
 	}
@@ -148,8 +165,8 @@ func TestRestoreExecutorRestoresAndReopensWhenAppWasRunning(t *testing.T) {
 	if quitCalls != 2 {
 		t.Fatalf("expected two quit calls, got %d", quitCalls)
 	}
-	if activateCalls != 2 {
-		t.Fatalf("expected two activate calls, got %d", activateCalls)
+	if activateCalls != 0 {
+		t.Fatalf("expected no explicit activate calls, got %d", activateCalls)
 	}
 }
 
@@ -274,8 +291,8 @@ func TestRestoreExecutorSkipsLifecycleWhenAppWasNotRunning(t *testing.T) {
 	}
 
 	quitCalls, activateCalls := app.counts()
-	if quitCalls != 1 || activateCalls != 1 {
-		t.Fatalf("expected temporary semantic launch lifecycle, quit=%d activate=%d", quitCalls, activateCalls)
+	if quitCalls != 1 || activateCalls != 0 {
+		t.Fatalf("expected semantic close-only lifecycle, quit=%d activate=%d", quitCalls, activateCalls)
 	}
 }
 
@@ -313,8 +330,8 @@ func TestRestoreExecutorRunsSemanticVerificationAndRestoresClosedState(t *testin
 		t.Fatalf("unexpected semantic verification actual snapshot: %#v", journal.SemanticVerification)
 	}
 	quitCalls, activateCalls := app.counts()
-	if quitCalls != 1 || activateCalls != 1 {
-		t.Fatalf("expected temporary launch lifecycle, quit=%d activate=%d", quitCalls, activateCalls)
+	if quitCalls != 1 || activateCalls != 0 {
+		t.Fatalf("expected temporary semantic close-only lifecycle, quit=%d activate=%d", quitCalls, activateCalls)
 	}
 }
 
@@ -345,6 +362,32 @@ func TestRestoreExecutorRollsBackWhenSemanticVerificationFails(t *testing.T) {
 	}
 }
 
+func TestRestoreExecutorRollsBackWhenSemanticCheckTimesOut(t *testing.T) {
+	tmp := t.TempDir()
+	writeLiveDBSet(t, tmp, "before")
+
+	bm := newBackupManager(tmp)
+	created, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	targetTS := inferTimestamp(created[0])
+	writeLiveDBSet(t, tmp, "after")
+
+	app := &fakeAppController{running: []bool{false, true, false, false}}
+	exec := newTestRestoreExecutor(bm, app)
+	exec.semanticTimeout = time.Nanosecond
+	exec.semanticCheck = func(ctx context.Context) (backupSemanticSnapshot, error) {
+		<-ctx.Done()
+		return backupSemanticSnapshot{}, ctx.Err()
+	}
+
+	_, err = exec.Execute(context.Background(), targetTS, false)
+	if err == nil || !strings.Contains(err.Error(), "semantic verify restored snapshot") || !strings.Contains(err.Error(), "semantic verify timed out") || !strings.Contains(err.Error(), "rollback succeeded") {
+		t.Fatalf("expected semantic timeout rollback error, got %v", err)
+	}
+}
+
 func TestRestoreExecutorRollsBackWhenPostLaunchVerificationFails(t *testing.T) {
 	tmp := t.TempDir()
 	writeLiveDBSet(t, tmp, "before")
@@ -357,17 +400,12 @@ func TestRestoreExecutorRollsBackWhenPostLaunchVerificationFails(t *testing.T) {
 	targetTS := inferTimestamp(created[0])
 	writeLiveDBSet(t, tmp, "after")
 
-	activateCalls := 0
-	app := &fakeAppController{
-		running: []bool{true, true, false, false, true, false, false},
-		activateFn: func() {
-			activateCalls++
-			if activateCalls == 1 {
-				writeLiveDBSet(t, tmp, "drifted")
-			}
-		},
-	}
+	app := &fakeAppController{running: []bool{true, true, false, false, true, false, false}}
 	exec := newTestRestoreExecutor(bm, app)
+	exec.semanticCheck = func(context.Context) (backupSemanticSnapshot, error) {
+		writeLiveDBSet(t, tmp, "drifted")
+		return testSemanticSnapshot(1, 0, 0), nil
+	}
 
 	_, err = exec.Execute(context.Background(), targetTS, false)
 	if err == nil || !strings.Contains(err.Error(), "post-launch verify restored snapshot") || !strings.Contains(err.Error(), "rollback succeeded") {
@@ -394,16 +432,11 @@ func TestRestoreExecutorUsesSemanticManifestInsteadOfPostLaunchFileDiff(t *testi
 	targetTS := inferTimestamp(created[0])
 	writeLiveDBSet(t, tmp, "after")
 
-	activateCalls := 0
 	app := &fakeAppController{
 		running: []bool{true, true, false},
-		activateFn: func() {
-			activateCalls++
-			writeLiveDBSet(t, tmp, "drifted")
-		},
 	}
 	exec := newTestRestoreExecutor(bm, app)
-	exec.semanticCheck = func(context.Context) (backupSemanticSnapshot, error) {
+	exec.fullSemanticCheck = func(context.Context) (backupSemanticSnapshot, error) {
 		return expectedSnapshot, nil
 	}
 
@@ -436,7 +469,7 @@ func TestRestoreExecutorRollsBackWhenSemanticManifestMismatches(t *testing.T) {
 
 	app := &fakeAppController{running: []bool{false, true, false, false}}
 	exec := newTestRestoreExecutor(bm, app)
-	exec.semanticCheck = func(context.Context) (backupSemanticSnapshot, error) {
+	exec.fullSemanticCheck = func(context.Context) (backupSemanticSnapshot, error) {
 		return testSemanticSnapshot(2, 1, 4), nil
 	}
 

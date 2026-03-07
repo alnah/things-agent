@@ -152,7 +152,7 @@ func TestBackupManagerCreateWritesSemanticManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadSemanticSnapshot failed: %v", err)
 	}
-	if got != expected {
+	if got.ListsCount != expected.ListsCount || got.ListsHash != expected.ListsHash || got.ProjectsCount != expected.ProjectsCount || got.ProjectsHash != expected.ProjectsHash || got.TasksCount != expected.TasksCount || got.TasksHash != expected.TasksHash || strings.Join(got.TaskRefs, ",") != strings.Join(expected.TaskRefs, ",") {
 		t.Fatalf("unexpected semantic manifest: got %#v want %#v", got, expected)
 	}
 }

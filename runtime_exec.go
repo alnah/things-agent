@@ -39,20 +39,12 @@ func backupIfNeeded(ctx context.Context, cfg *runtimeConfig) error {
 }
 
 func backupIfDestructive(ctx context.Context, cfg *runtimeConfig) error {
-	bm := newBackupManager(cfg.dataDir)
-	paths, err := bm.Create(ctx)
+	paths, err := newBackupExecutor(cfg).Create(ctx)
 	if err != nil {
 		return fmt.Errorf("backup failed: %w", err)
 	}
 	_ = paths
 	return nil
-}
-
-func newSemanticBackupManager(cfg *runtimeConfig) *backupManager {
-	bm := newBackupManager(cfg.dataDir)
-	snapshotter := newScriptSemanticSnapshotter(cfg.bundleID, cfg.runner)
-	bm.semanticSnapshot = snapshotter.Snapshot
-	return bm
 }
 
 func runResult(ctx context.Context, cfg *runtimeConfig, script string) error {

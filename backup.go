@@ -29,12 +29,13 @@ type backupSnapshot struct {
 }
 
 type backupSemanticSnapshot struct {
-	ListsCount    int    `json:"lists_count"`
-	ListsHash     string `json:"lists_hash"`
-	ProjectsCount int    `json:"projects_count"`
-	ProjectsHash  string `json:"projects_hash"`
-	TasksCount    int    `json:"tasks_count"`
-	TasksHash     string `json:"tasks_hash"`
+	ListsCount    int      `json:"lists_count"`
+	ListsHash     string   `json:"lists_hash"`
+	ProjectsCount int      `json:"projects_count"`
+	ProjectsHash  string   `json:"projects_hash"`
+	TasksCount    int      `json:"tasks_count"`
+	TasksHash     string   `json:"tasks_hash"`
+	TaskRefs      []string `json:"task_refs,omitempty"`
 }
 
 func newBackupManager(dataDir string) *backupManager {

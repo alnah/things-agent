@@ -12,11 +12,14 @@ import (
 )
 
 const (
-	restorePollInterval       = 200 * time.Millisecond
-	restoreStopTimeout        = 5 * time.Second
-	restoreStabilityTimeout   = 2 * time.Second
-	restoreStablePasses       = 2
-	restoreQuiesceGracePeriod = 300 * time.Millisecond
+	restorePollInterval        = 200 * time.Millisecond
+	restoreStopTimeout         = 5 * time.Second
+	restoreStabilityTimeout    = 2 * time.Second
+	restoreStablePasses        = 2
+	restoreQuiesceGracePeriod  = 300 * time.Millisecond
+	restoreLaunchTimeout       = 15 * time.Second
+	restoreSemanticTimeout     = 15 * time.Second
+	restoreFullSemanticTimeout = 60 * time.Second
 )
 
 type appController interface {
@@ -59,17 +62,21 @@ func (c scriptAppController) Activate(ctx context.Context, bundleID string) erro
 }
 
 type restoreExecutor struct {
-	backups            *backupManager
-	bundleID           string
-	app                appController
-	sleep              func(time.Duration)
-	pollInterval       time.Duration
-	stopTimeout        time.Duration
-	stabilityTimeout   time.Duration
-	stablePasses       int
-	quiesceGracePeriod time.Duration
-	captureFileState   func(string) ([]liveFileState, error)
-	semanticCheck      func(context.Context) (backupSemanticSnapshot, error)
+	backups             *backupManager
+	bundleID            string
+	app                 appController
+	sleep               func(time.Duration)
+	pollInterval        time.Duration
+	stopTimeout         time.Duration
+	stabilityTimeout    time.Duration
+	stablePasses        int
+	quiesceGracePeriod  time.Duration
+	launchTimeout       time.Duration
+	semanticTimeout     time.Duration
+	fullSemanticTimeout time.Duration
+	captureFileState    func(string) ([]liveFileState, error)
+	semanticCheck       func(context.Context) (backupSemanticSnapshot, error)
+	fullSemanticCheck   func(context.Context) (backupSemanticSnapshot, error)
 }
 
 type restorePreflightReport struct {
@@ -143,17 +150,21 @@ type restoreSemanticVerification struct {
 
 func newRestoreExecutor(cfg *runtimeConfig) *restoreExecutor {
 	return &restoreExecutor{
-		backups:            newBackupManager(cfg.dataDir),
-		bundleID:           cfg.bundleID,
-		app:                scriptAppController{runner: cfg.runner},
-		sleep:              time.Sleep,
-		pollInterval:       restorePollInterval,
-		stopTimeout:        restoreStopTimeout,
-		stabilityTimeout:   restoreStabilityTimeout,
-		stablePasses:       restoreStablePasses,
-		quiesceGracePeriod: restoreQuiesceGracePeriod,
-		captureFileState:   captureLiveFileState,
-		semanticCheck:      newScriptSemanticSnapshotter(cfg.bundleID, cfg.runner).Snapshot,
+		backups:             newBackupManager(cfg.dataDir),
+		bundleID:            cfg.bundleID,
+		app:                 scriptAppController{runner: cfg.runner},
+		sleep:               time.Sleep,
+		pollInterval:        restorePollInterval,
+		stopTimeout:         restoreStopTimeout,
+		stabilityTimeout:    restoreStabilityTimeout,
+		stablePasses:        restoreStablePasses,
+		quiesceGracePeriod:  restoreQuiesceGracePeriod,
+		launchTimeout:       restoreLaunchTimeout,
+		semanticTimeout:     restoreSemanticTimeout,
+		fullSemanticTimeout: restoreFullSemanticTimeout,
+		captureFileState:    captureLiveFileState,
+		semanticCheck:       newScriptSemanticHealthSnapshotter(cfg.bundleID, cfg.runner).Snapshot,
+		fullSemanticCheck:   newScriptSemanticSnapshotter(cfg.bundleID, cfg.runner).Snapshot,
 	}
 }
 
@@ -236,26 +247,14 @@ func (r *restoreExecutor) Execute(ctx context.Context, timestamp string, dryRun 
 	}
 	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "verify", Status: "ok"})
 
-	if preflight.AppRunning {
-		if err := r.app.Activate(ctx, r.bundleID); err != nil {
-			journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reopen", Status: "failed", Error: err.Error()})
-			return journal, err
-		}
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reopen", Status: "ok"})
-	} else if err := r.app.Activate(ctx, r.bundleID); err != nil {
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "semantic-launch", Status: "failed", Error: err.Error()})
-		return journal, err
-	} else {
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "semantic-launch", Status: "ok"})
-	}
-
-	actualSemantic, err := r.semanticCheck(ctx)
+	actualSemantic, err := r.semanticCheckForRestore(ctx, preflight.Timestamp)
 	if err != nil {
 		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "semantic-verify", Status: "failed", Error: err.Error()})
 		rollback, restoreErr := r.restoreFailureWithAppState(ctx, preRestoreTS, preflight.AppRunning, true, fmt.Errorf("semantic verify restored snapshot %s: %w", preflight.Timestamp, err))
 		journal.Rollback = rollback
 		return journal, restoreErr
 	}
+	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "semantic-launch", Status: "ok"})
 	semanticReport, err := r.buildSemanticVerification(preflight.Timestamp, actualSemantic)
 	if !preflight.AppRunning {
 		semanticReport.TemporaryLaunch = true
@@ -297,14 +296,6 @@ func (r *restoreExecutor) Execute(ctx context.Context, timestamp string, dryRun 
 			return journal, restoreErr
 		}
 		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "post-launch-verify", Status: "ok"})
-	}
-
-	if preflight.AppRunning {
-		if err := r.app.Activate(ctx, r.bundleID); err != nil {
-			journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reopen", Status: "failed", Error: err.Error()})
-			return journal, err
-		}
-		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "reopen", Status: "ok"})
 	}
 
 	journal.Outcome = "restored"
@@ -410,6 +401,71 @@ func (r *restoreExecutor) closeAfterTemporaryLaunch(ctx context.Context) error {
 	return r.waitForStopped(ctx)
 }
 
+func (r *restoreExecutor) activateWithin(ctx context.Context, label string) error {
+	timeout := r.launchTimeout
+	if timeout <= 0 {
+		timeout = restoreLaunchTimeout
+	}
+	activateCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	err := r.app.Activate(activateCtx, r.bundleID)
+	if err == nil {
+		return nil
+	}
+	if errors.Is(activateCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%s timed out after %s", label, timeout)
+	}
+	return err
+}
+
+func (r *restoreExecutor) semanticCheckWithin(ctx context.Context, label string) (backupSemanticSnapshot, error) {
+	timeout := r.semanticTimeout
+	if timeout <= 0 {
+		timeout = restoreSemanticTimeout
+	}
+	semanticCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	snapshot, err := r.semanticCheck(semanticCtx)
+	if err == nil {
+		return snapshot, nil
+	}
+	if errors.Is(semanticCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
+		return backupSemanticSnapshot{}, fmt.Errorf("%s timed out after %s", label, timeout)
+	}
+	return backupSemanticSnapshot{}, err
+}
+
+func (r *restoreExecutor) fullSemanticCheckWithin(ctx context.Context, label string) (backupSemanticSnapshot, error) {
+	timeout := r.fullSemanticTimeout
+	if timeout <= 0 {
+		timeout = restoreFullSemanticTimeout
+	}
+	semanticCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	snapshot, err := r.fullSemanticCheck(semanticCtx)
+	if err == nil {
+		return snapshot, nil
+	}
+	if errors.Is(semanticCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
+		return backupSemanticSnapshot{}, fmt.Errorf("%s timed out after %s", label, timeout)
+	}
+	return backupSemanticSnapshot{}, err
+}
+
+func (r *restoreExecutor) semanticCheckForRestore(ctx context.Context, timestamp string) (backupSemanticSnapshot, error) {
+	expected, err := r.backups.loadSemanticSnapshot(timestamp)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return r.semanticCheckWithin(ctx, "semantic verify")
+		}
+		return backupSemanticSnapshot{}, fmt.Errorf("load semantic snapshot %s: %w", timestamp, err)
+	}
+	if expected.ListsHash != "" || expected.ProjectsHash != "" || expected.TasksHash != "" {
+		return r.fullSemanticCheckWithin(ctx, "semantic verify")
+	}
+	return r.semanticCheckWithin(ctx, "semantic verify")
+}
+
 func (r *restoreExecutor) waitForStableFiles(ctx context.Context) error {
 	deadline := time.Now().Add(r.stabilityTimeout)
 	requiredPasses := r.stablePasses
@@ -496,9 +552,16 @@ func (r *restoreExecutor) restoreFailureWithAppState(ctx context.Context, rollba
 		Timestamp: rollbackTS,
 	}
 	if appRunningNow {
-		if err := r.quiesce(ctx, true); err != nil {
+		running, err := r.app.IsRunning(ctx, r.bundleID)
+		if err != nil {
 			report.Error = err.Error()
 			return report, fmt.Errorf("%w; rollback precondition failed: %v", cause, err)
+		}
+		if running {
+			if err := r.quiesce(ctx, true); err != nil {
+				report.Error = err.Error()
+				return report, fmt.Errorf("%w; rollback precondition failed: %v", cause, err)
+			}
 		}
 	}
 	_, rollbackErr := r.backups.Restore(ctx, rollbackTS)
@@ -508,7 +571,7 @@ func (r *restoreExecutor) restoreFailureWithAppState(ctx context.Context, rollba
 	}
 	report.Succeeded = true
 	if wasRunning {
-		if err := r.app.Activate(ctx, r.bundleID); err != nil {
+		if err := r.activateWithin(ctx, "rollback reopen"); err != nil {
 			report.Error = err.Error()
 			return report, fmt.Errorf("%w; rollback succeeded; reopen failed: %v", cause, err)
 		}

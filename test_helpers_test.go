@@ -21,11 +21,17 @@ func (f *fakeRunner) run(_ context.Context, script string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.scripts = append(f.scripts, script)
-	if f.runFn != nil {
-		return f.runFn(script)
+	if strings.Contains(script, "return running") {
+		return "false", nil
+	}
+	if strings.Contains(script, `repeat with l in every list`) && strings.Contains(script, `repeat with t in every to do`) {
+		return "", nil
 	}
 	if strings.Contains(script, "restore semantic verify") {
 		return "1\t0", nil
+	}
+	if f.runFn != nil {
+		return f.runFn(script)
 	}
 	return f.output, f.err
 }
