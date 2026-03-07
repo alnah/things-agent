@@ -203,7 +203,7 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 
 | Command group | Commands | Notes |
 | --- | --- | --- |
-| Session and backup | `session-start`, `backup`, `restore [--file <path or timestamp>]` | Backup-first workflow |
+| Session and backup | `session-start`, `backup`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>]` | `restore` creates a pre-restore backup, quiesces Things, verifies files, and rolls back on failure |
 | Core listing/search | `lists`, `projects`, `tasks [--list <name>] [--query <text>]`, `search --query <text> [--list <name>]` | Works with localized list names |
 | Tag entities | `tags list`, `tags search`, `tags add`, `tags edit`, `tags delete` | Manage Things tags directly |
 | Task lifecycle | `add-task`, `edit-task`, `delete-task`, `complete-task`, `uncomplete-task` | Standard to-do operations |
@@ -212,7 +212,7 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | Projects | `add-project`, `edit-project`, `delete-project` | Project CRUD |
 | Areas/lists | `add-list`, `edit-list`, `delete-list` | Area/list CRUD |
 | Subtasks/checklist | `add-subtask`, `edit-subtask`, `delete-subtask`, `complete-subtask`, `uncomplete-subtask`, `list-subtasks` | `add-subtask` uses native checklist and requires token |
-| URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|add-json` | Direct mapping of Things URL Scheme |
+| URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|json` | Direct mapping of Things URL Scheme |
 | CLI info | `version` | Print CLI version |
 | Checklist shortcut | `add-task --subtasks "a, b"` | Creates native checklist, requires `--auth-token` or `THINGS_AUTH_TOKEN` |
 
@@ -227,4 +227,4 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | `things-agent url show` | `things:///show` | `id`, `query`, `filter` |
 | `things-agent url search` | `things:///search` | `query` |
 | `things-agent url version` | `things:///version` | none |
-| `things-agent url add-json` | `things:///add-json` | `data` (`auth-token` required when using `operation:update`) |
+| `things-agent url json` | `things:///json` | `data` (`auth-token` required when using `operation:update`) |

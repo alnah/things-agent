@@ -47,7 +47,7 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent version` | Print CLI version | no | Health check |
 | `things-agent session-start` | Create session backup + retention cleanup | yes | First command in a new session |
 | `things-agent backup` | Create backup manually | yes | Safe checkpoint |
-| `things-agent restore [--file <path or timestamp>]` | Restore a backup | yes | Critical operation |
+| `things-agent restore [--timestamp <YYYY-MM-DD:HH-MM-SS>]` | Restore a backup | yes | Critical operation; creates a pre-restore backup, quiesces Things, verifies files, rolls back on failure |
 | `things-agent lists` | List Things areas/lists | no | Read operation |
 | `things-agent projects` | List projects | no | Read operation |
 | `things-agent tags list [--query <text>]` | List tags | no | Read operation |
@@ -87,9 +87,9 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent url add-project ...` | Things URL Scheme `add-project` | yes | Direct URL bridge |
 | `things-agent url update-project ...` | Things URL Scheme `update-project` | yes | Requires token for updates |
 | `things-agent url show ...` | Things URL Scheme `show` | no | Reveal/query |
-| `things-agent url search --query <text>` | Things URL Scheme `search` | no | Search via URL scheme |
+| `things-agent url search [--query <text>]` | Things URL Scheme `search` | no | Search via URL scheme; empty query opens search UI |
 | `things-agent url version` | Things URL Scheme `version` | no | URL scheme info |
-| `things-agent url add-json --data '<json>'` | Things URL Scheme `add-json` | yes | `operation:update` requires token |
+| `things-agent url json --data '<json>'` | Things URL Scheme `json` | yes | `operation:update` requires token |
 
 ## Expected Operations to Implement / Document
 
