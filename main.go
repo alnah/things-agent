@@ -47,7 +47,8 @@ func newRootCmd() *cobra.Command {
 		Short:         "Things CLI via AppleScript (no direct DB access)",
 		Long: `This CLI controls Things through AppleScript only.
 It creates a timestamped backup in YYYY-MM-DD:hh-mm-ss format
-before each write action. Restore creates a pre-restore backup,
+before destructive delete actions, explicit backup commands, and restore.
+Restore creates a pre-restore backup,
 quiesces Things, verifies restored files, and rolls back on failure.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()

@@ -80,12 +80,12 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent edit-list --name <name> --new-name <name>` | Rename area/list | yes | Write operation |
 | `things-agent delete-list --name <name>` | Delete area/list | yes | Destructive |
 | `things-agent add-checklist-item (--task <name> | --task-id <id>) --name <name>` | Add checklist item | yes | Requires token |
-| `things-agent list-child-tasks (--parent <name> | --parent-id <id>)` | List child tasks under a task/project | no | Read operation |
-| `things-agent add-child-task (--parent <name> | --parent-id <id>) --name <name> [--notes <text>]` | Add a child task under a task/project | yes | Write operation |
-| `things-agent edit-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>] ...` | Edit a child task | yes | Write operation |
-| `things-agent delete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Delete a child task | yes | Destructive |
-| `things-agent complete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task completed | yes | Write operation |
-| `things-agent uncomplete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task open | yes | Write operation |
+| `things-agent list-child-tasks (--parent <name> | --parent-id <id>)` | List child tasks under a project | no | Read operation |
+| `things-agent add-child-task (--parent <name> | --parent-id <id>) --name <name> [--notes <text>]` | Add a child task under a project | yes | Write operation |
+| `things-agent edit-child-task --id <id>` or `things-agent edit-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>] ...` | Edit a child task | yes | Write operation |
+| `things-agent delete-child-task --id <id>` or `things-agent delete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Delete a child task | yes | Destructive |
+| `things-agent complete-child-task --id <id>` or `things-agent complete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task completed | yes | Write operation |
+| `things-agent uncomplete-child-task --id <id>` or `things-agent uncomplete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task open | yes | Write operation |
 | `things-agent url add ...` | Things URL Scheme `add` | yes | Direct URL bridge |
 | `things-agent url update ...` | Things URL Scheme `update` | yes | Requires token |
 | `things-agent url add-project ...` | Things URL Scheme `add-project` | yes | Direct URL bridge |
@@ -93,7 +93,7 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent url show ...` | Things URL Scheme `show` | no | Reveal/query |
 | `things-agent url search [--query <text>]` | Things URL Scheme `search` | no | Search via URL scheme; empty query opens search UI |
 | `things-agent url version` | Things URL Scheme `version` | no | URL scheme info |
-| `things-agent url json --data '<json>'` | Things URL Scheme `json` | yes | `operation:update` requires token |
+| `things-agent url json --data '<json-array>'` | Things URL Scheme `json` | yes | Official top-level JSON array; token required when any item uses `operation:update` |
 
 ## Expected Operations to Implement / Document
 

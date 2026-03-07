@@ -142,8 +142,10 @@ THINGS_DEFAULT_LIST="À classer" things-agent add-task --name "Uses env default 
 things-agent add-task --name "Native checklist" --checklist-items "Point 1, Point 2" --auth-token "<token>"
 things-agent complete-task --id "<todo-id>"
 things-agent add-checklist-item --task-id "<todo-id>" --name "Review the message"
-things-agent list-child-tasks --parent-id "<todo-id>"
-things-agent add-child-task --parent-id "<todo-id>" --name "Follow up draft" --notes "Needs review"
+things-agent list-child-tasks --parent-id "<project-id>"
+things-agent add-child-task --parent-id "<project-id>" --name "Follow up draft" --notes "Needs review"
+things-agent edit-child-task --id "<child-task-id>" --new-name "Follow up v2"
+things-agent delete-child-task --id "<child-task-id>"
 things-agent tags list
 things-agent tags search --query "work"
 things-agent tags add --name "urgent"
@@ -211,7 +213,7 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 
 | Command group | Commands | Notes |
 | --- | --- | --- |
-| Session and backup | `session-start`, `backup`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--dry-run] [--json]`, `restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `restore` creates a pre-restore backup, quiesces Things, verifies files, rolls back on failure, and can emit a structured journal for the agent |
+| Session and backup | `session-start`, `backup`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--dry-run] [--json]`, `restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `restore` creates a pre-restore backup, quiesces Things, verifies files, rolls back on failure, and can emit a structured journal for the agent; auto-backups on ordinary writes are disabled |
 | Core listing/search | `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task (--name|--id) [--with-child-tasks] [--json]` | `--json` is intended for agent consumption |
 | Tag entities | `tags list`, `tags search`, `tags add`, `tags edit`, `tags delete` | Manage Things tags directly |
 | Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task (--name|--id)`, `delete-task (--name|--id)`, `complete-task (--name|--id)`, `uncomplete-task (--name|--id)` | Standard to-do operations with explicit destination on create; `--checklist-items` creates native checklist |
@@ -220,7 +222,7 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | Projects | `add-project [--area <name>]`, `edit-project (--name|--id)`, `delete-project (--name|--id)` | Project CRUD |
 | Areas/lists | `add-list`, `edit-list`, `delete-list` | Area/list CRUD |
 | Checklist items | `add-checklist-item (--task|--task-id)` | Native checklist write path; requires token |
-| Child tasks | `list-child-tasks (--parent|--parent-id)`, `add-child-task (--parent|--parent-id)`, `edit-child-task (--parent|--parent-id)`, `delete-child-task (--parent|--parent-id)`, `complete-child-task (--parent|--parent-id)`, `uncomplete-child-task (--parent|--parent-id)` | Explicit AppleScript child-task surface for tasks and projects |
+| Child tasks | `list-child-tasks (--parent|--parent-id)`, `add-child-task (--parent|--parent-id)`, `edit-child-task (--id or --parent/--parent-id + --name/--index)`, `delete-child-task (--id or --parent/--parent-id + --name/--index)`, `complete-child-task (--id or --parent/--parent-id + --name/--index)`, `uncomplete-child-task (--id or --parent/--parent-id + --name/--index)` | Explicit AppleScript child-task surface for projects; direct `--id` is supported for mutations |
 | URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|json` | Direct mapping of Things URL Scheme |
 | CLI info | `version` | Print CLI version |
 | Checklist shortcut | `add-task --checklist-items "a, b"` | Creates native checklist, requires `--auth-token` or `THINGS_AUTH_TOKEN` |
@@ -236,4 +238,4 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | `things-agent url show` | `things:///show` | `id`, `query`, `filter` |
 | `things-agent url search` | `things:///search` | `query` |
 | `things-agent url version` | `things:///version` | none |
-| `things-agent url json` | `things:///json` | `data` (`auth-token` required when using `operation:update`) |
+| `things-agent url json` | `things:///json` | `data` as an official top-level JSON array (`auth-token` required when any item uses `operation:update`) |
