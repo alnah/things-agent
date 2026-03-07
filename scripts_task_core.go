@@ -190,7 +190,9 @@ func scriptEditTask(bundleID, sourceName, sourceID, newName, notes, tags, moveTo
 `, escapeApple(moveTo))
 	}
 	if strings.TrimSpace(due) != "" {
-		script += appleScriptDateAssignment("dueDateValue", "due date", due)
+		script += appleScriptDateAssignment("dueDateValue", "", due)
+		script += `  schedule t for dueDateValue
+`
 	}
 	if strings.TrimSpace(completion) != "" {
 		script += appleScriptDateAssignment("completionDateValue", "completion date", completion)

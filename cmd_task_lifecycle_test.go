@@ -139,6 +139,9 @@ func TestTaskLifecycleCommands(t *testing.T) {
 		if len(scripts) < 4 {
 			t.Fatalf("expected at least 4 scripts, got %d", len(scripts))
 		}
+		if !strings.Contains(scripts[0], `schedule t for dueDateValue`) {
+			t.Fatalf("expected edit-task due to schedule start date, got %s", scripts[0])
+		}
 		if !strings.Contains(strings.Join(scripts, "\n"), "things:///update?auth-token=token-test") {
 			t.Fatalf("expected URL completion update scripts, got %#v", scripts)
 		}

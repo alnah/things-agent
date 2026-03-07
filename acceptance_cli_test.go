@@ -181,6 +181,28 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 	})
 
+	t.Run("edit-task due uses schedule backend", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntimeWithDB(t, fr)
+
+		err := executeAcceptanceRoot(t,
+			"edit-task",
+			"--id", "task-a",
+			"--due", "2026-03-06",
+		)
+		if err != nil {
+			t.Fatalf("expected edit-task --due to succeed: %v", err)
+		}
+
+		scripts := strings.Join(fr.allScripts(), "\n")
+		if !strings.Contains(scripts, `set month of dueDateValue to March`) || !strings.Contains(scripts, `schedule t for dueDateValue`) {
+			t.Fatalf("expected due date scheduling backend, got %s", scripts)
+		}
+		if strings.Contains(scripts, `set due date of t to dueDateValue`) {
+			t.Fatalf("expected edit-task --due to avoid deadline property, got %s", scripts)
+		}
+	})
+
 	t.Run("list-child-tasks surfaces backend status markers", func(t *testing.T) {
 		fr := &fakeRunner{output: "status:unsupported\ncode:-1708\nmessage:event not handled"}
 		setupTestRuntime(t, t.TempDir(), fr)

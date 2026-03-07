@@ -128,7 +128,7 @@ func TestScriptEditTaskWithAllOptionalFields(t *testing.T) {
 		`set tag names of t to "a, b"`,
 		`move t to end of to dos of (first list whose name is "Inbox")`,
 		`set month of dueDateValue to March`,
-		`set due date of t to dueDateValue`,
+		`schedule t for dueDateValue`,
 		`set month of completionDateValue to March`,
 		`set completion date of t to completionDateValue`,
 		`set month of creationDateValue to March`,
