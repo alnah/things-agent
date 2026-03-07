@@ -151,7 +151,7 @@ func TestChecklistItemCommands(t *testing.T) {
 		}
 
 		scripts := strings.Join(fr.allScripts(), "\n")
-		if !strings.Contains(scripts, `first «class tstk» whose id is "task-1"`) {
+		if !strings.Contains(scripts, `every to do whose id is "task-1"`) {
 			t.Fatalf("expected task-id selector in checklist script, got %s", scripts)
 		}
 	})
