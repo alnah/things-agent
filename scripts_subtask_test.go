@@ -10,6 +10,9 @@ func TestScriptChildTaskListingAndShow(t *testing.T) {
 	if !strings.Contains(list, "set childTasks to to dos of t") {
 		t.Fatalf("unexpected list-child-tasks script: %s", list)
 	}
+	if !strings.Contains(list, `Child tasks are only supported on projects.`) {
+		t.Fatalf("expected project-only guard: %s", list)
+	}
 	if !strings.Contains(list, `return "status:empty"`) {
 		t.Fatalf("expected empty status marker: %s", list)
 	}
@@ -44,12 +47,12 @@ func TestScriptAddChildTaskOptionallySetsNotes(t *testing.T) {
 
 func TestScriptFindChildTaskByIndexOrName(t *testing.T) {
 	byIndex := scriptFindChildTask("bundle.id", "task", "", "", 2)
-	if !strings.Contains(byIndex, "set s to item 2 of to dos of t") {
+	if !strings.Contains(byIndex, "set childTasks to to dos of t") || !strings.Contains(byIndex, "set s to item 2 of childTasks") {
 		t.Fatalf("expected lookup by index: %s", byIndex)
 	}
 
 	byName := scriptFindChildTask("bundle.id", "task", "", "sub", 0)
-	if !strings.Contains(byName, `first to do of to dos of t whose name is "sub"`) {
+	if !strings.Contains(byName, `if (name of childTaskRef as string) is "sub"`) {
 		t.Fatalf("expected lookup by name: %s", byName)
 	}
 }

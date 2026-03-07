@@ -8,6 +8,7 @@ import (
 func scriptListChildTasks(bundleID, parentName, parentID string) string {
 	return fmt.Sprintf(`tell application id "%s"
 %s  try
+    if class of t is not project then error "Child tasks are only supported on projects."
     set childTasks to to dos of t
   on error errMsg number errNum
     return "status:unsupported" & linefeed & "code:" & (errNum as string) & linefeed & "message:" & errMsg
@@ -18,11 +19,11 @@ func scriptListChildTasks(bundleID, parentName, parentID string) string {
   set out to "status:ok"
   repeat with i from 1 to count childTasks
     set s to item i of childTasks
-    set outLine to (i as string) & ". " & (name of s)
+    set childTaskLine to (i as string) & ". " & (name of s)
     if (notes of s is not missing value) and (notes of s is not "") then
-      set outLine to outLine & " | " & (notes of s)
+      set childTaskLine to childTaskLine & " | " & (notes of s)
     end if
-    set out to out & linefeed & outLine
+    set out to out & linefeed & childTaskLine
   end repeat
   return out
 end tell`, bundleID, scriptResolveItemRef(parentName, parentID))
@@ -30,7 +31,8 @@ end tell`, bundleID, scriptResolveItemRef(parentName, parentID))
 
 func scriptAddChildTask(bundleID, parentName, parentID, childTaskName, notes string) string {
 	script := fmt.Sprintf(`tell application id "%s"
-%s  try
+%s  if class of t is not project then error "Child tasks are only supported on projects."
+  try
     set s to make new to do at end of to dos of t with properties {name:"%s"}
 `, bundleID, scriptResolveItemRef(parentName, parentID), escapeApple(childTaskName))
 	if strings.TrimSpace(notes) != "" {
@@ -47,19 +49,24 @@ end tell`
 
 func scriptFindChildTask(bundleID, parentName, parentID, childTaskName string, index int) string {
 	childTaskName = strings.TrimSpace(childTaskName)
-	var target string
-	if index > 0 {
-		target = fmt.Sprintf("item %d of to dos of t", index)
-	} else {
-		target = fmt.Sprintf(`first to do of to dos of t whose name is "%s"`, escapeApple(childTaskName))
-	}
 	return fmt.Sprintf(`tell application id "%s"
-%s  try
-    set s to %s
-  on error
-    error "No child task found on this item."
-  end try
-`, bundleID, scriptResolveItemRef(parentName, parentID), target)
+%s  if class of t is not project then error "Child tasks are only supported on projects."
+  set childTasks to to dos of t
+  if %d > 0 then
+    if (count childTasks) < %d then error "No child task found on this item."
+    set s to item %d of childTasks
+  else
+    set matchedCount to 0
+    repeat with childTaskRef in childTasks
+      if (name of childTaskRef as string) is "%s" then
+        set matchedCount to matchedCount + 1
+        set s to contents of childTaskRef
+      end if
+    end repeat
+    if matchedCount is 0 then error "No child task found on this item."
+    if matchedCount is greater than 1 then error "Ambiguous child task name on this item; use --index."
+  end if
+`, bundleID, scriptResolveItemRef(parentName, parentID), index, index, index, escapeApple(childTaskName))
 }
 
 func scriptShowTask(bundleID, taskName, taskID string, withChildTasks bool) string {
