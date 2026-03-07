@@ -60,7 +60,7 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent tasks [--list <name>] [--query <text>] [--json]` | List tasks with optional filters | no | Read operation |
 | `things-agent search --query <text> [--list <name>] [--json]` | Search tasks | no | Read operation |
 | `things-agent show-task --name <name> [--json]` | Show full task/project details | no | Includes metadata |
-| `things-agent add-task ...` | Create a task | yes | Write operation |
+| `things-agent add-task --area <name> ...` / `things-agent add-task --project <name> ...` | Create a task | yes | Write operation with explicit destination |
 | `things-agent edit-task ...` | Edit a task by name | yes | Write operation |
 | `things-agent delete-task --name <name>` | Delete a task | yes | Destructive |
 | `things-agent complete-task --name <name>` | Mark task completed | yes | Write operation |
@@ -72,7 +72,7 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent set-task-notes --name <name> --notes <text>` | Replace task notes | yes | Write operation |
 | `things-agent append-task-notes --name <name> --notes <text>` | Append task notes | yes | Write operation |
 | `things-agent set-task-date --name <name> ...` | Set/clear due/deadline | yes | Write operation |
-| `things-agent add-project --name <name> [--list <area>]` | Create project | yes | Write operation |
+| `things-agent add-project --name <name> [--area <area>]` | Create project | yes | Write operation |
 | `things-agent edit-project --name <name> ...` | Edit project | yes | Write operation |
 | `things-agent delete-project --name <name>` | Delete project | yes | Destructive |
 | `things-agent add-list --name <name>` | Create area/list | yes | Write operation |

@@ -135,7 +135,8 @@ things-agent search --query "Wagner"
 things-agent search --query "Wagner" --json
 things-agent projects --json
 things-agent show-task --name "Say hello" --json
-things-agent add-task --name "Say hello" --notes "Message" --list "À classer"
+things-agent add-task --name "Say hello" --notes "Message" --area "À classer"
+things-agent add-task --name "File chapter draft" --project "French Course"
 THINGS_DEFAULT_LIST="À classer" things-agent add-task --name "Uses env default list"
 things-agent add-task --name "Native checklist" --subtasks "Point 1, Point 2" --auth-token "<token>"
 things-agent complete-task --name "Say hello"
@@ -211,10 +212,10 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | Session and backup | `session-start`, `backup`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `restore` creates a pre-restore backup, quiesces Things, verifies files, and rolls back on failure |
 | Core listing/search | `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task --name <name> [--json]` | `--json` is intended for agent consumption |
 | Tag entities | `tags list`, `tags search`, `tags add`, `tags edit`, `tags delete` | Manage Things tags directly |
-| Task lifecycle | `add-task`, `edit-task`, `delete-task`, `complete-task`, `uncomplete-task` | Standard to-do operations |
+| Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task`, `delete-task`, `complete-task`, `uncomplete-task` | Standard to-do operations with explicit destination on create |
 | Task metadata | `set-task-notes`, `append-task-notes`, `set-task-date` | Notes and date updates |
 | Tags | `set-tags`, `set-task-tags`, `add-task-tags`, `remove-task-tags` | Exact set and incremental updates |
-| Projects | `add-project`, `edit-project`, `delete-project` | Project CRUD |
+| Projects | `add-project [--area <name>]`, `edit-project`, `delete-project` | Project CRUD |
 | Areas/lists | `add-list`, `edit-list`, `delete-list` | Area/list CRUD |
 | Subtasks/checklist | `add-subtask`, `edit-subtask`, `delete-subtask`, `complete-subtask`, `uncomplete-subtask`, `list-subtasks` | `add-subtask` uses native checklist and requires token |
 | URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|json` | Direct mapping of Things URL Scheme |
