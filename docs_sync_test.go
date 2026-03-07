@@ -19,6 +19,10 @@ func TestDocsSyncGate(t *testing.T) {
 		"add-task --area",
 		"add-task --project",
 		"edit-task (--name <name> | --id <id>)",
+		"move-task (--name <name> | --id <id>)",
+		"move-project (--name <name> | --id <id>)",
+		"reorder-project-items (--project <name> | --project-id <id>) --ids <csv>",
+		"reorder-area-items (--area <name> | --area-id <id>) --ids <csv>",
 		"list-child-tasks (--parent <name> | --parent-id <id>)",
 		"add-child-task (--parent <name> | --parent-id <id>)",
 	}
@@ -32,6 +36,10 @@ func TestDocsSyncGate(t *testing.T) {
 		"show-task (--name <name> | --id <id>)",
 		"add-checklist-item (--task <name> | --task-id <id>) --name <name>",
 		"add-child-task (--parent <name> | --parent-id <id>) --name <name>",
+		"move-task (--name <name> | --id <id>)",
+		"move-project (--name <name> | --id <id>)",
+		"reorder-project-items (--project <name> | --project-id <id>) --ids <csv>",
+		"reorder-area-items (--area <name> | --area-id <id>) --ids <csv>",
 	}
 	for _, needle := range agentsRequired {
 		if !strings.Contains(agents, needle) {
@@ -44,6 +52,9 @@ func TestDocsSyncGate(t *testing.T) {
 		"things-agent complete-task --id",
 		"things-agent add-checklist-item --task-id",
 		"things-agent add-child-task --parent-id",
+		"things-agent move-task --id",
+		"things-agent move-project --id",
+		"things-agent reorder-project-items --project-id",
 	}
 	for _, needle := range readmeRequired {
 		if !strings.Contains(readme, needle) {

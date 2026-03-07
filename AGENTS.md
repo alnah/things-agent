@@ -51,7 +51,7 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]` | Validate restore readiness without mutating live files | no | Read operation for restore safety |
 | `things-agent restore list [--json]` | List available snapshots | no | Read operation for restore inventory |
 | `things-agent restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | Verify that live files match a snapshot | no | Read operation with per-file verification details |
-| `things-agent lists` | List Things areas/lists | no | Read operation |
+| `things-agent lists` | List Things areas and built-in lists | no | Read operation |
 | `things-agent projects [--json]` | List projects | no | Read operation |
 | `things-agent tags list [--query <text>]` | List tags | no | Read operation |
 | `things-agent tags search --query <text>` | Search tags by name | no | Read operation |
@@ -76,16 +76,20 @@ The agent should treat this table as the current command surface of the CLI.
 | `things-agent add-project --name <name> [--area <area>]` | Create project | yes | Write operation |
 | `things-agent edit-project (--name <name> | --id <id>) ...` | Edit project | yes | Write operation |
 | `things-agent delete-project (--name <name> | --id <id>)` | Delete project | yes | Destructive |
-| `things-agent add-list --name <name>` | Create area/list | yes | Write operation |
-| `things-agent edit-list --name <name> --new-name <name>` | Rename area/list | yes | Write operation |
-| `things-agent delete-list --name <name>` | Delete area/list | yes | Destructive |
+| `things-agent move-project (--name <name> | --id <id>) (--to-area <name> | --to-area-id <id>)` | Move project to another area | yes | Write operation |
+| `things-agent add-list --name <name>` | Create area | yes | Write operation |
+| `things-agent edit-list --name <name> --new-name <name>` | Rename area | yes | Write operation |
+| `things-agent delete-list --name <name>` | Delete area | yes | Destructive |
+| `things-agent reorder-area-items (--area <name> | --area-id <id>) --ids <csv>` | Reorder area items | yes | Uses private/experimental Things AppleScript backend; live testing shows projects still stay before tasks |
 | `things-agent add-checklist-item (--task <name> | --task-id <id>) --name <name>` | Add checklist item | yes | Requires token |
+| `things-agent move-task (--name <name> | --id <id>) (--to-area <name> | --to-area-id <id> | --to-project <name> | --to-project-id <id> | --to-heading <name> | --to-heading-id <id>)` | Move task to another area, project, or existing heading | yes | Write operation via official URL update |
 | `things-agent list-child-tasks (--parent <name> | --parent-id <id>)` | List child tasks under a project | no | Read operation |
 | `things-agent add-child-task (--parent <name> | --parent-id <id>) --name <name> [--notes <text>]` | Add a child task under a project | yes | Write operation |
 | `things-agent edit-child-task --id <id>` or `things-agent edit-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>] ...` | Edit a child task | yes | Write operation |
 | `things-agent delete-child-task --id <id>` or `things-agent delete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Delete a child task | yes | Destructive |
 | `things-agent complete-child-task --id <id>` or `things-agent complete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task completed | yes | Write operation |
 | `things-agent uncomplete-child-task --id <id>` or `things-agent uncomplete-child-task (--parent <name> | --parent-id <id>) [--name <name> | --index <n>]` | Mark child task open | yes | Write operation |
+| `things-agent reorder-project-items (--project <name> | --project-id <id>) --ids <csv>` | Reorder child tasks inside a project | yes | Uses private/experimental Things AppleScript backend |
 | `things-agent url add ...` | Things URL Scheme `add` | yes | Direct URL bridge |
 | `things-agent url update ...` | Things URL Scheme `update` | yes | Requires token |
 | `things-agent url add-project ...` | Things URL Scheme `add-project` | yes | Direct URL bridge |
@@ -106,11 +110,12 @@ The agent should treat this table as the current command surface of the CLI.
   - Add a project
   - Update/edit a project
   - Delete a project
-- Areas/lists:
-  - List areas/lists
-  - Add an area/list
-  - Edit an area/list
-  - Delete an area/list
+- Areas:
+  - List areas
+  - Add an area
+  - Edit an area
+  - Delete an area
+  - Reorder items inside an area with `reorder-area-items`
 - Tasks:
   - Add a task
   - Edit a task
@@ -120,6 +125,10 @@ The agent should treat this table as the current command surface of the CLI.
   - Manage notes
   - Add native checklist items
   - Manage child tasks
+  - Move a task to an area, project, or existing heading
+- Projects:
+  - Move a project to another area
+  - Reorder child tasks inside a project with `reorder-project-items`
 - Dates:
   - Set/update `deadline` and due fields
   - Support coherent date formats (ISO/localized based on input)

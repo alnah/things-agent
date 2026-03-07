@@ -228,6 +228,69 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 	})
 
+	t.Run("move commands use explicit destinations", func(t *testing.T) {
+		t.Run("move-task resolves source id then uses url update", func(t *testing.T) {
+			call := 0
+			fr := &fakeRunner{runFn: func(string) (string, error) {
+				call++
+				if call == 1 {
+					return "task-1", nil
+				}
+				return "ok", nil
+			}}
+			setupTestRuntimeWithDB(t, fr)
+
+			err := executeAcceptanceRoot(t, "move-task", "--name", "Task A", "--to-area", "Area B")
+			if err != nil {
+				t.Fatalf("expected move-task to succeed: %v", err)
+			}
+
+			scripts := strings.Join(fr.allScripts(), "\n")
+			if !strings.Contains(scripts, `every to do whose name is "Task A"`) || !strings.Contains(scripts, "things:///update?auth-token=token-test") || !strings.Contains(scripts, "list=Area%20B") {
+				t.Fatalf("expected move-task resolution + url update, got %s", scripts)
+			}
+		})
+
+		t.Run("move-project resolves source id then uses url update-project", func(t *testing.T) {
+			call := 0
+			fr := &fakeRunner{runFn: func(string) (string, error) {
+				call++
+				if call == 1 {
+					return "project-1", nil
+				}
+				return "ok", nil
+			}}
+			setupTestRuntimeWithDB(t, fr)
+
+			err := executeAcceptanceRoot(t, "move-project", "--name", "Project A", "--to-area", "Area B")
+			if err != nil {
+				t.Fatalf("expected move-project to succeed: %v", err)
+			}
+
+			scripts := strings.Join(fr.allScripts(), "\n")
+			if !strings.Contains(scripts, `first project whose name is "Project A"`) || !strings.Contains(scripts, "things:///update-project?") || !strings.Contains(scripts, "auth-token=token-test") || !strings.Contains(scripts, "area=Area%20B") {
+				t.Fatalf("expected move-project resolution + url update-project, got %s", scripts)
+			}
+		})
+	})
+
+	t.Run("private reorder commands are explicit", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntimeWithDB(t, fr)
+
+		if err := executeAcceptanceRoot(t, "reorder-project-items", "--project-id", "project-1", "--ids", "b,a"); err != nil {
+			t.Fatalf("expected reorder-project-items to succeed: %v", err)
+		}
+		if err := executeAcceptanceRoot(t, "reorder-area-items", "--area", "Area A", "--ids", "p2,p1"); err != nil {
+			t.Fatalf("expected reorder-area-items to succeed: %v", err)
+		}
+
+		scripts := strings.Join(fr.allScripts(), "\n")
+		if !strings.Contains(scripts, `_private_experimental_ reorder to dos in p with ids "b,a"`) || !strings.Contains(scripts, `_private_experimental_ reorder to dos in a with ids "p2,p1"`) {
+			t.Fatalf("expected explicit private reorder backend, got %s", scripts)
+		}
+	})
+
 	t.Run("read commands support stable json output", func(t *testing.T) {
 		t.Run("tasks json returns machine fields", func(t *testing.T) {
 			fr := &fakeRunner{output: "task-1\tTask A\topen\n"}

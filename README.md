@@ -146,6 +146,9 @@ things-agent list-child-tasks --parent-id "<project-id>"
 things-agent add-child-task --parent-id "<project-id>" --name "Follow up draft" --notes "Needs review"
 things-agent edit-child-task --id "<child-task-id>" --new-name "Follow up v2"
 things-agent delete-child-task --id "<child-task-id>"
+things-agent move-task --id "<todo-id>" --to-project "<project>"
+things-agent move-project --id "<project-id>" --to-area "<area>"
+things-agent reorder-project-items --project-id "<project-id>" --ids "<todo-id-2>,<todo-id-1>"
 things-agent tags list
 things-agent tags search --query "work"
 things-agent tags add --name "urgent"
@@ -219,13 +222,19 @@ This keeps audit workflows safe while respecting the no-direct-database rule.
 | Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task (--name|--id)`, `delete-task (--name|--id)`, `complete-task (--name|--id)`, `uncomplete-task (--name|--id)` | Standard to-do operations with explicit destination on create; `--checklist-items` creates native checklist |
 | Task metadata | `set-task-notes (--name|--id)`, `append-task-notes (--name|--id)`, `set-task-date (--name|--id)` | Notes and date updates |
 | Tags | `set-tags (--name|--id)`, `set-task-tags (--name|--id)`, `add-task-tags (--name|--id)`, `remove-task-tags (--name|--id)` | Exact set and incremental updates |
-| Projects | `add-project [--area <name>]`, `edit-project (--name|--id)`, `delete-project (--name|--id)` | Project CRUD |
-| Areas/lists | `add-list`, `edit-list`, `delete-list` | Area/list CRUD |
+| Projects | `add-project [--area <name>]`, `edit-project (--name|--id)`, `delete-project (--name|--id)`, `move-project (--name|--id)` | Project CRUD and area moves |
+| Areas | `add-list`, `edit-list`, `delete-list`, `reorder-area-items (--area|--area-id)` | Area CRUD; reorder uses a private Things backend |
 | Checklist items | `add-checklist-item (--task|--task-id)` | Native checklist write path; requires token |
-| Child tasks | `list-child-tasks (--parent|--parent-id)`, `add-child-task (--parent|--parent-id)`, `edit-child-task (--id or --parent/--parent-id + --name/--index)`, `delete-child-task (--id or --parent/--parent-id + --name/--index)`, `complete-child-task (--id or --parent/--parent-id + --name/--index)`, `uncomplete-child-task (--id or --parent/--parent-id + --name/--index)` | Explicit AppleScript child-task surface for projects; direct `--id` is supported for mutations |
+| Tasks | `move-task (--name|--id)` | Move to an area, project, or existing heading |
+| Child tasks | `list-child-tasks (--parent|--parent-id)`, `add-child-task (--parent|--parent-id)`, `edit-child-task (--id or --parent/--parent-id + --name/--index)`, `delete-child-task (--id or --parent/--parent-id + --name/--index)`, `complete-child-task (--id or --parent/--parent-id + --name/--index)`, `uncomplete-child-task (--id or --parent/--parent-id + --name/--index)`, `reorder-project-items (--project|--project-id)` | Explicit AppleScript child-task surface for projects; direct `--id` is supported for mutations; reorder uses a private Things backend |
 | URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|json` | Direct mapping of Things URL Scheme |
 | CLI info | `version` | Print CLI version |
 | Checklist shortcut | `add-task --checklist-items "a, b"` | Creates native checklist, requires `--auth-token` or `THINGS_AUTH_TOKEN` |
+
+Reordering notes:
+- `reorder-project-items` is backed by a private/experimental Things AppleScript command.
+- `reorder-area-items` can reorder projects relative to projects and tasks relative to tasks, but live testing shows Things still keeps projects before tasks inside an area.
+- No stable public backend is available yet for checklist-item reorder, heading reorder, or sidebar area reorder.
 
 ### URL Scheme API Mapping
 
