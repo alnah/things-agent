@@ -218,6 +218,9 @@ func (bm *backupManager) prune(ctx context.Context, keep int) error {
 		if err := os.Remove(bm.semanticSnapshotPath(ts)); err != nil && !os.IsNotExist(err) {
 			return err
 		}
+		if err := os.Remove(bm.stateSnapshotPath(ts)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 	}
 	return nil
 }
@@ -255,6 +258,10 @@ func (bm *backupManager) backupPath() string {
 
 func (bm *backupManager) semanticSnapshotPath(ts string) string {
 	return filepath.Join(bm.backupPath(), "manifest."+ts+".json")
+}
+
+func (bm *backupManager) stateSnapshotPath(ts string) string {
+	return filepath.Join(bm.backupPath(), "state."+ts+".json")
 }
 
 func (bm *backupManager) ensureBackupDir() (string, error) {
@@ -320,6 +327,27 @@ func (bm *backupManager) loadSemanticSnapshot(ts string) (backupSemanticSnapshot
 	var snapshot backupSemanticSnapshot
 	if err := json.Unmarshal(data, &snapshot); err != nil {
 		return backupSemanticSnapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func (bm *backupManager) writeStateSnapshot(ts string, snapshot thingsStateSnapshot) error {
+	path := bm.stateSnapshotPath(ts)
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func (bm *backupManager) loadStateSnapshot(ts string) (thingsStateSnapshot, error) {
+	data, err := os.ReadFile(bm.stateSnapshotPath(ts))
+	if err != nil {
+		return thingsStateSnapshot{}, err
+	}
+	var snapshot thingsStateSnapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return thingsStateSnapshot{}, err
 	}
 	return snapshot, nil
 }

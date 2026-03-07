@@ -157,6 +157,32 @@ func TestBackupManagerCreateWritesSemanticManifest(t *testing.T) {
 	}
 }
 
+func TestBackupManagerWriteAndLoadStateSnapshot(t *testing.T) {
+	tmp := t.TempDir()
+	bm := newBackupManager(tmp)
+	if _, err := bm.ensureBackupDir(); err != nil {
+		t.Fatalf("ensureBackupDir failed: %v", err)
+	}
+
+	expected := thingsStateSnapshot{
+		SchemaVersion: 1,
+		Areas:         []thingsStateArea{{ID: "area-1", Name: "Area A"}},
+		Projects:      []thingsStateProject{{ID: "project-1", Name: "Project A", Area: "Area A"}},
+		Tasks:         []thingsStateTask{{ID: "task-1", Name: "Task A", Project: "Project A"}},
+	}
+	if err := bm.writeStateSnapshot("2026-03-07:10-00-00", expected); err != nil {
+		t.Fatalf("writeStateSnapshot failed: %v", err)
+	}
+
+	got, err := bm.loadStateSnapshot("2026-03-07:10-00-00")
+	if err != nil {
+		t.Fatalf("loadStateSnapshot failed: %v", err)
+	}
+	if got.SchemaVersion != expected.SchemaVersion || len(got.Areas) != 1 || got.Areas[0].Name != "Area A" || len(got.Tasks) != 1 || got.Tasks[0].Project != "Project A" {
+		t.Fatalf("unexpected state snapshot: %#v", got)
+	}
+}
+
 func TestBackupManagerCreateAvoidsTimestampCollisions(t *testing.T) {
 	tmp := t.TempDir()
 	for _, base := range []string{"main.sqlite", "main.sqlite-shm", "main.sqlite-wal"} {

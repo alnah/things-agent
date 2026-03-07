@@ -17,12 +17,21 @@ type fakeRunner struct {
 	runFn   func(string) (string, error)
 }
 
+type runnerFunc func(context.Context, string) (string, error)
+
+func (f runnerFunc) run(ctx context.Context, script string) (string, error) {
+	return f(ctx, script)
+}
+
 func (f *fakeRunner) run(_ context.Context, script string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.scripts = append(f.scripts, script)
 	if strings.Contains(script, "return running") {
 		return "false", nil
+	}
+	if strings.Contains(script, "state snapshot capture") {
+		return "", nil
 	}
 	if strings.Contains(script, `repeat with l in every list`) && strings.Contains(script, `repeat with t in every to do`) {
 		return "", nil
@@ -44,7 +53,7 @@ func (f *fakeRunner) allScripts() []string {
 	return out
 }
 
-func setupTestRuntime(t *testing.T, dataDir string, fr *fakeRunner) {
+func setupTestRuntime(t *testing.T, dataDir string, runner scriptRunner) {
 	t.Helper()
 
 	origConfig := config
@@ -54,7 +63,7 @@ func setupTestRuntime(t *testing.T, dataDir string, fr *fakeRunner) {
 	config.bundleID = defaultBundleID
 	config.authToken = "token-test"
 	newRuntimeRunner = func(bundleID string) scriptRunner {
-		return fr
+		return runner
 	}
 
 	t.Cleanup(func() {
@@ -63,7 +72,7 @@ func setupTestRuntime(t *testing.T, dataDir string, fr *fakeRunner) {
 	})
 }
 
-func setupTestRuntimeWithDB(t *testing.T, fr *fakeRunner) string {
+func setupTestRuntimeWithDB(t *testing.T, runner scriptRunner) string {
 	t.Helper()
 
 	tmp := t.TempDir()
@@ -72,6 +81,6 @@ func setupTestRuntimeWithDB(t *testing.T, fr *fakeRunner) string {
 			t.Fatalf("seed %s failed: %v", base, err)
 		}
 	}
-	setupTestRuntime(t, tmp, fr)
+	setupTestRuntime(t, tmp, runner)
 	return tmp
 }

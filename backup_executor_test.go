@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func newTestBackupExecutor(bm *backupManager, app appController, semantic func(context.Context) (backupSemanticSnapshot, error)) *backupExecutor {
+func newTestBackupExecutor(bm *backupManager, app appController, semantic func(context.Context) (backupSemanticSnapshot, error), state func(context.Context) (thingsStateSnapshot, error)) *backupExecutor {
 	runtime := &restoreExecutor{
 		backups:             bm,
 		bundleID:            defaultBundleID,
@@ -31,7 +31,7 @@ func newTestBackupExecutor(bm *backupManager, app appController, semantic func(c
 		semanticCheck:     semantic,
 		fullSemanticCheck: semantic,
 	}
-	return &backupExecutor{runtime: runtime}
+	return &backupExecutor{runtime: runtime, stateCheck: state}
 }
 
 func TestBackupExecutorQuiescesRunningAppAndWritesManifest(t *testing.T) {
@@ -45,6 +45,8 @@ func TestBackupExecutorQuiescesRunningAppAndWritesManifest(t *testing.T) {
 	app := &fakeAppController{running: []bool{true, true, false}}
 	exec := newTestBackupExecutor(bm, app, func(context.Context) (backupSemanticSnapshot, error) {
 		return expected, nil
+	}, func(context.Context) (thingsStateSnapshot, error) {
+		return thingsStateSnapshot{SchemaVersion: 1, Areas: []thingsStateArea{{ID: "area-1", Name: "Area A"}}}, nil
 	})
 
 	created, err := exec.Create(context.Background())
@@ -62,6 +64,13 @@ func TestBackupExecutorQuiescesRunningAppAndWritesManifest(t *testing.T) {
 	}
 	if got.TasksHash != expected.TasksHash || len(got.TaskRefs) != len(expected.TaskRefs) {
 		t.Fatalf("unexpected semantic manifest: %#v", got)
+	}
+	state, err := bm.loadStateSnapshot(ts)
+	if err != nil {
+		t.Fatalf("loadStateSnapshot failed: %v", err)
+	}
+	if len(state.Areas) != 1 || state.Areas[0].Name != "Area A" {
+		t.Fatalf("unexpected state snapshot: %#v", state)
 	}
 
 	quitCalls, activateCalls := app.counts()
@@ -81,6 +90,8 @@ func TestBackupExecutorTemporarilyLaunchesWhenAppWasNotRunning(t *testing.T) {
 	app := &fakeAppController{running: []bool{false, false}}
 	exec := newTestBackupExecutor(bm, app, func(context.Context) (backupSemanticSnapshot, error) {
 		return expected, nil
+	}, func(context.Context) (thingsStateSnapshot, error) {
+		return thingsStateSnapshot{SchemaVersion: 1}, nil
 	})
 
 	created, err := exec.Create(context.Background())
@@ -114,6 +125,8 @@ func TestBackupExecutorReopensRunningAppWhenBackupCopyFails(t *testing.T) {
 	app := &fakeAppController{running: []bool{true, true, false}}
 	exec := newTestBackupExecutor(bm, app, func(context.Context) (backupSemanticSnapshot, error) {
 		return backupSemanticSnapshot{}, nil
+	}, func(context.Context) (thingsStateSnapshot, error) {
+		return thingsStateSnapshot{SchemaVersion: 1}, nil
 	})
 
 	_, err := exec.Create(context.Background())
@@ -136,6 +149,8 @@ func TestBackupExecutorFallsBackToLightSemanticManifestOnTimeout(t *testing.T) {
 	exec := newTestBackupExecutor(bm, app, func(ctx context.Context) (backupSemanticSnapshot, error) {
 		<-ctx.Done()
 		return backupSemanticSnapshot{}, ctx.Err()
+	}, func(context.Context) (thingsStateSnapshot, error) {
+		return thingsStateSnapshot{SchemaVersion: 1}, nil
 	})
 	exec.runtime.semanticTimeout = time.Nanosecond
 	exec.healthCheck = func(context.Context) (backupSemanticSnapshot, error) {

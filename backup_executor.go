@@ -10,6 +10,7 @@ import (
 type backupExecutor struct {
 	runtime     *restoreExecutor
 	healthCheck func(context.Context) (backupSemanticSnapshot, error)
+	stateCheck  func(context.Context) (thingsStateSnapshot, error)
 }
 
 func newBackupExecutor(cfg *runtimeConfig) *backupExecutor {
@@ -30,6 +31,7 @@ func newBackupExecutor(cfg *runtimeConfig) *backupExecutor {
 	return &backupExecutor{
 		runtime:     runtime,
 		healthCheck: newScriptSemanticHealthSnapshotter(bundleID, runner).Snapshot,
+		stateCheck:  newScriptStateSnapshotter(bundleID, runner).Snapshot,
 	}
 }
 
@@ -74,13 +76,16 @@ func (b *backupExecutor) Create(ctx context.Context) (paths []string, err error)
 		return paths, errors.New("backup created but timestamp could not be inferred")
 	}
 
-	semantic, err := b.captureSemanticManifest(ctx, wasRunning)
+	semantic, state, err := b.captureBackupManifests(ctx, wasRunning)
 	if err != nil {
-		return paths, fmt.Errorf("backup created but semantic snapshot failed: %w", err)
+		return paths, fmt.Errorf("backup created but state manifests failed: %w", err)
 	}
 
 	if err := b.runtime.backups.writeSemanticSnapshot(timestamp, semantic); err != nil {
 		return paths, fmt.Errorf("backup created but semantic snapshot save failed: %w", err)
+	}
+	if err := b.runtime.backups.writeStateSnapshot(timestamp, state); err != nil {
+		return paths, fmt.Errorf("backup created but state snapshot save failed: %w", err)
 	}
 
 	if wasRunning {
@@ -89,21 +94,32 @@ func (b *backupExecutor) Create(ctx context.Context) (paths []string, err error)
 	return paths, nil
 }
 
-func (b *backupExecutor) captureSemanticManifest(ctx context.Context, wasRunning bool) (backupSemanticSnapshot, error) {
+func (b *backupExecutor) captureBackupManifests(ctx context.Context, wasRunning bool) (backupSemanticSnapshot, thingsStateSnapshot, error) {
 	snapshot, snapshotErr := b.runtime.semanticCheckWithin(ctx, "backup semantic snapshot")
 	if snapshotErr != nil && strings.Contains(snapshotErr.Error(), "timed out") && b.healthCheck != nil {
 		snapshot, snapshotErr = b.healthCheck(ctx)
 	}
+	stateSnapshot := thingsStateSnapshot{}
+	stateErr := error(nil)
+	if b.stateCheck != nil {
+		stateSnapshot, stateErr = b.stateCheck(ctx)
+	}
 	if !wasRunning {
 		if closeErr := b.runtime.closeAfterTemporaryLaunch(ctx); closeErr != nil {
 			if snapshotErr != nil {
-				return backupSemanticSnapshot{}, fmt.Errorf("%w; restore app state: %v", snapshotErr, closeErr)
+				return backupSemanticSnapshot{}, thingsStateSnapshot{}, fmt.Errorf("%w; restore app state: %v", snapshotErr, closeErr)
 			}
-			return backupSemanticSnapshot{}, fmt.Errorf("restore app state: %w", closeErr)
+			if stateErr != nil {
+				return backupSemanticSnapshot{}, thingsStateSnapshot{}, fmt.Errorf("%w; restore app state: %v", stateErr, closeErr)
+			}
+			return backupSemanticSnapshot{}, thingsStateSnapshot{}, fmt.Errorf("restore app state: %w", closeErr)
 		}
 	}
 	if snapshotErr != nil {
-		return backupSemanticSnapshot{}, snapshotErr
+		return backupSemanticSnapshot{}, thingsStateSnapshot{}, snapshotErr
 	}
-	return snapshot, nil
+	if stateErr != nil {
+		return backupSemanticSnapshot{}, thingsStateSnapshot{}, stateErr
+	}
+	return snapshot, stateSnapshot, nil
 }

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -44,6 +46,95 @@ func executeAcceptanceRoot(t *testing.T, args ...string) error {
 }
 
 func TestAcceptanceCLIContracts(t *testing.T) {
+	t.Run("snapshot-state emits structured current state", func(t *testing.T) {
+		runner := runnerFunc(func(_ context.Context, script string) (string, error) {
+			if strings.Contains(script, "state snapshot capture") {
+				return strings.Join([]string{
+					`A	area-1	Area A`,
+					`P	project-1	Project A	open	area-1	Area A	Project note	tag-a, tag-b`,
+					`T	task-1	Task A	open	area-1	Area A	project-1	Project A	2026-03-07 00:00:00	2026-03-08 00:00:00	Task note\ntwo	tag-a`,
+				}, "\n"), nil
+			}
+			return "ok", nil
+		})
+		setupTestRuntimeWithDB(t, runner)
+
+		stdout, err := captureStdout(t, func() error {
+			return executeAcceptanceRoot(t, "snapshot-state", "--json")
+		})
+		if err != nil {
+			t.Fatalf("expected snapshot-state to succeed: %v", err)
+		}
+
+		var payload struct {
+			Areas []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			} `json:"areas"`
+			Projects []struct {
+				ID    string   `json:"id"`
+				Name  string   `json:"name"`
+				Area  string   `json:"area"`
+				Notes string   `json:"notes"`
+				Tags  []string `json:"tags"`
+			} `json:"projects"`
+			Tasks []struct {
+				ID       string   `json:"id"`
+				Name     string   `json:"name"`
+				Project  string   `json:"project"`
+				Due      string   `json:"due"`
+				Deadline string   `json:"deadline"`
+				Notes    string   `json:"notes"`
+				Tags     []string `json:"tags"`
+			} `json:"tasks"`
+		}
+		if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+			t.Fatalf("expected snapshot-state JSON, got %q (%v)", stdout, err)
+		}
+		if len(payload.Areas) != 1 || payload.Areas[0].Name != "Area A" {
+			t.Fatalf("unexpected areas payload: %#v", payload.Areas)
+		}
+		if len(payload.Projects) != 1 || payload.Projects[0].Area != "Area A" || payload.Projects[0].Notes != "Project note" || strings.Join(payload.Projects[0].Tags, ",") != "tag-a,tag-b" {
+			t.Fatalf("unexpected projects payload: %#v", payload.Projects)
+		}
+		if len(payload.Tasks) != 1 || payload.Tasks[0].Project != "Project A" || payload.Tasks[0].Due != "2026-03-07 00:00:00" || payload.Tasks[0].Deadline != "2026-03-08 00:00:00" || payload.Tasks[0].Notes != "Task note\ntwo" {
+			t.Fatalf("unexpected tasks payload: %#v", payload.Tasks)
+		}
+	})
+
+	t.Run("backup writes a state snapshot manifest", func(t *testing.T) {
+		runner := runnerFunc(func(_ context.Context, script string) (string, error) {
+			if strings.Contains(script, "state snapshot capture") {
+				return "A\tarea-1\tArea A", nil
+			}
+			return "", nil
+		})
+		tmp := setupTestRuntimeWithDB(t, runner)
+
+		stdout, err := captureStdout(t, func() error {
+			return executeAcceptanceRoot(t, "backup")
+		})
+		if err != nil {
+			t.Fatalf("expected backup to succeed: %v", err)
+		}
+
+		lines := strings.Fields(strings.TrimSpace(stdout))
+		if len(lines) == 0 {
+			t.Fatalf("expected backup paths on stdout, got %q", stdout)
+		}
+		ts := inferTimestamp(lines[0])
+		if ts == "" {
+			t.Fatalf("expected backup timestamp in %q", stdout)
+		}
+		data, err := os.ReadFile(filepath.Join(tmp, backupDirName, "state."+ts+".json"))
+		if err != nil {
+			t.Fatalf("expected state snapshot manifest, read failed: %v", err)
+		}
+		if !strings.Contains(string(data), `"areas"`) || !strings.Contains(string(data), `"Area A"`) {
+			t.Fatalf("unexpected state snapshot manifest: %s", string(data))
+		}
+	})
+
 	t.Run("create commands require explicit destination", func(t *testing.T) {
 		t.Run("add-task rejects missing destination", func(t *testing.T) {
 			fr := &fakeRunner{output: "task-id-1"}
