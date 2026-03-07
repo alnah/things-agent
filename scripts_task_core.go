@@ -4,10 +4,26 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
-	"net/url"
 	"io"
+	"net/url"
 	"strings"
+	"time"
 )
+
+var appleScriptMonthNames = [...]string{
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+}
 
 func taskPropertyParts(name, notes, tags string) []string {
 	parts := []string{fmt.Sprintf(`name:"%s"`, escapeApple(name))}
@@ -22,12 +38,31 @@ func taskPropertyParts(name, notes, tags string) []string {
 
 func appendDueDateScript(script, due string) string {
 	if strings.TrimSpace(due) != "" {
-		script += fmt.Sprintf(`  set due date of t to date "%s"
-`, due)
+		script += appleScriptDateAssignment("dueDateValue", "due date", due)
 	}
 	script += `  return id of t
 end tell`
 	return script
+}
+
+func appleScriptDateAssignment(varName, propertyName, normalized string) string {
+	normalized = strings.TrimSpace(normalized)
+	if normalized == "" {
+		return ""
+	}
+	parsed, err := time.ParseInLocation("2006-01-02 15:04:05", normalized, time.Local)
+	if err != nil {
+		return fmt.Sprintf(`  set %s of t to date "%s"
+`, propertyName, normalized)
+	}
+	monthName := appleScriptMonthNames[int(parsed.Month())-1]
+	return fmt.Sprintf(`  set %s to current date
+  set year of %s to %d
+  set month of %s to %s
+  set day of %s to %d
+  set time of %s to %d
+  set %s of t to %s
+`, varName, varName, parsed.Year(), varName, monthName, varName, parsed.Day(), varName, parsed.Hour()*3600+parsed.Minute()*60+parsed.Second(), propertyName, varName)
 }
 
 func scriptAddTaskToArea(bundleID, areaName, name, notes, tags, due string) string {
@@ -151,20 +186,16 @@ func scriptEditTask(bundleID, sourceName, sourceID, newName, notes, tags, moveTo
 `, escapeApple(moveTo))
 	}
 	if strings.TrimSpace(due) != "" {
-		script += fmt.Sprintf(`  set due date of t to date "%s"
-`, due)
+		script += appleScriptDateAssignment("dueDateValue", "due date", due)
 	}
 	if strings.TrimSpace(completion) != "" {
-		script += fmt.Sprintf(`  set completion date of t to date "%s"
-`, completion)
+		script += appleScriptDateAssignment("completionDateValue", "completion date", completion)
 	}
 	if strings.TrimSpace(creation) != "" {
-		script += fmt.Sprintf(`  set creation date of t to date "%s"
-`, creation)
+		script += appleScriptDateAssignment("creationDateValue", "creation date", creation)
 	}
 	if strings.TrimSpace(cancel) != "" {
-		script += fmt.Sprintf(`  set cancellation date of t to date "%s"
-`, cancel)
+		script += appleScriptDateAssignment("cancellationDateValue", "cancellation date", cancel)
 	}
 	script += `  return id of t
 end tell`
@@ -233,8 +264,7 @@ func scriptSetTaskDate(bundleID, taskName, taskID, dueDate string, clear bool) s
 `
 	}
 	if strings.TrimSpace(dueDate) != "" {
-		script += fmt.Sprintf(`  set due date of t to date "%s"
-`, dueDate)
+		script += appleScriptDateAssignment("dueDateValue", "due date", dueDate)
 	}
 	script += `  return id of t
 	end tell`

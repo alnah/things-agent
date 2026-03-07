@@ -115,7 +115,7 @@ func TestTaskMetadataCommands(t *testing.T) {
 		}
 
 		scripts := strings.Join(fr.allScripts(), "\n")
-		if !strings.Contains(scripts, `set due date of t to date "2026-03-06 00:00:00"`) {
+		if !strings.Contains(scripts, `set month of dueDateValue to March`) || !strings.Contains(scripts, `set due date of t to dueDateValue`) {
 			t.Fatalf("expected due date AppleScript update, got %s", scripts)
 		}
 		if !strings.Contains(scripts, "things:///update?auth-token=token-test") || !strings.Contains(scripts, "&deadline=2026-03-07") {

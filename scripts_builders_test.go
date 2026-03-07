@@ -90,7 +90,7 @@ func TestScriptSetTaskDateClearsAndSetsDueOnly(t *testing.T) {
 	if !strings.Contains(s, "set due date of t to missing value") {
 		t.Fatalf("expected clear due date step: %s", s)
 	}
-	if !strings.Contains(s, `set due date of t to date "2026-03-06 00:00:00"`) {
+	if !strings.Contains(s, `set month of dueDateValue to March`) || !strings.Contains(s, `set due date of t to dueDateValue`) {
 		t.Fatalf("expected due date set: %s", s)
 	}
 }
@@ -127,10 +127,14 @@ func TestScriptEditTaskWithAllOptionalFields(t *testing.T) {
 		`set notes of t to "new-notes"`,
 		`set tag names of t to "a, b"`,
 		`move t to end of to dos of (first list whose name is "Inbox")`,
-		`set due date of t to date "2026-03-06 00:00:00"`,
-		`set completion date of t to date "2026-03-07 00:00:00"`,
-		`set creation date of t to date "2026-03-01 00:00:00"`,
-		`set cancellation date of t to date "2026-03-08 00:00:00"`,
+		`set month of dueDateValue to March`,
+		`set due date of t to dueDateValue`,
+		`set month of completionDateValue to March`,
+		`set completion date of t to completionDateValue`,
+		`set month of creationDateValue to March`,
+		`set creation date of t to creationDateValue`,
+		`set month of cancellationDateValue to March`,
+		`set cancellation date of t to cancellationDateValue`,
 	}
 	for _, part := range wantParts {
 		if !strings.Contains(s, part) {
