@@ -7,7 +7,14 @@ import (
 
 func TestProjectListCommands(t *testing.T) {
 	t.Run("add and edit and delete succeed", func(t *testing.T) {
-		fr := &fakeRunner{output: "ok"}
+		call := 0
+		fr := &fakeRunner{runFn: func(string) (string, error) {
+			call++
+			if call == 2 {
+				return "area-1", nil
+			}
+			return "ok", nil
+		}}
 		setupTestRuntimeWithDB(t, fr)
 
 		addProject := newAddProjectCmd()
@@ -18,8 +25,12 @@ func TestProjectListCommands(t *testing.T) {
 
 		addList := newAddListCmd()
 		addList.SetArgs([]string{"--name", "area1"})
-		if err := addList.Execute(); err != nil {
+		stdout, err := captureStdout(t, addList.Execute)
+		if err != nil {
 			t.Fatalf("add-list failed: %v", err)
+		}
+		if !strings.Contains(stdout, "area-1") {
+			t.Fatalf("expected add-list to print created area id, got %q", stdout)
 		}
 
 		editProject := newEditProjectCmd()

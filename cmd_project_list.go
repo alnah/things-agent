@@ -57,8 +57,8 @@ func newAddListCmd() *cobra.Command {
 				return err
 			}
 			script := fmt.Sprintf(`tell application id "%s"
-  make new area with properties {name:"%s"}
-  return "ok"
+  set a to make new area with properties {name:"%s"}
+  return id of a
 end tell`, cfg.bundleID, escapeApple(name))
 			return runResult(ctx, cfg, script)
 		},
