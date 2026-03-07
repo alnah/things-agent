@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -177,6 +178,72 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		if !strings.Contains(stdout, "status:unsupported") || !strings.Contains(stdout, "message:event not handled") {
 			t.Fatalf("expected backend status markers on stdout, got %q", stdout)
 		}
+	})
+
+	t.Run("read commands support stable json output", func(t *testing.T) {
+		t.Run("tasks json returns machine fields", func(t *testing.T) {
+			fr := &fakeRunner{output: "task-1\tTask A\topen\n"}
+			setupTestRuntime(t, t.TempDir(), fr)
+
+			stdout, err := captureStdout(t, func() error {
+				return executeAcceptanceRoot(t, "tasks", "--json")
+			})
+			if err != nil {
+				t.Fatalf("expected tasks --json to succeed: %v", err)
+			}
+
+			var items []map[string]any
+			if err := json.Unmarshal([]byte(stdout), &items); err != nil {
+				t.Fatalf("decode tasks json: %v\nstdout=%q", err, stdout)
+			}
+			if len(items) != 1 {
+				t.Fatalf("expected one task, got %d", len(items))
+			}
+			if items[0]["id"] != "task-1" || items[0]["name"] != "Task A" || items[0]["type"] != "task" || items[0]["status"] != "open" {
+				t.Fatalf("unexpected task json payload: %#v", items[0])
+			}
+		})
+
+		t.Run("show-task json preserves notes and subtasks", func(t *testing.T) {
+			fr := &fakeRunner{output: strings.Join([]string{
+				"ID: task-1",
+				"Name: Task A",
+				"Type: to do",
+				"Statut: open",
+				"Due: 2026-03-06 00:00:00",
+				"Completed on: ",
+				"Created on: 2026-03-01 00:00:00",
+				"Tags: alpha, beta",
+				"Notes: line one",
+				"line two",
+				"Subtasks:",
+				"1. Review [open] | note-a",
+				"2. Ship [completed]",
+			}, "\n")}
+			setupTestRuntime(t, t.TempDir(), fr)
+
+			stdout, err := captureStdout(t, func() error {
+				return executeAcceptanceRoot(t, "show-task", "--name", "Task A", "--json")
+			})
+			if err != nil {
+				t.Fatalf("expected show-task --json to succeed: %v", err)
+			}
+
+			var item map[string]any
+			if err := json.Unmarshal([]byte(stdout), &item); err != nil {
+				t.Fatalf("decode show-task json: %v\nstdout=%q", err, stdout)
+			}
+			if item["id"] != "task-1" || item["type"] != "task" || item["status"] != "open" {
+				t.Fatalf("unexpected show-task json payload: %#v", item)
+			}
+			if item["notes"] != "line one\nline two" {
+				t.Fatalf("expected multiline notes, got %#v", item["notes"])
+			}
+			subtasks, ok := item["subtasks"].([]any)
+			if !ok || len(subtasks) != 2 {
+				t.Fatalf("expected two subtasks, got %#v", item["subtasks"])
+			}
+		})
 	})
 
 	t.Run("restore is timestamp-only on the CLI surface", func(t *testing.T) {

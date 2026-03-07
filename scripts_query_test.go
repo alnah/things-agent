@@ -35,6 +35,31 @@ func TestScriptSearchAliasesTasks(t *testing.T) {
 	}
 }
 
+func TestScriptTasksStructuredBranches(t *testing.T) {
+	all := scriptTasksStructured("bundle.id", "", "")
+	if !strings.Contains(all, `repeat with t in every «class tstk»`) {
+		t.Fatalf("unexpected structured all-tasks script: %s", all)
+	}
+
+	byListQuery := scriptTasksStructured("bundle.id", "Inbox", "beta")
+	if !strings.Contains(byListQuery, `set l to first list whose name is "Inbox"`) {
+		t.Fatalf("unexpected structured list+query script: %s", byListQuery)
+	}
+	if !strings.Contains(byListQuery, `id of t as string`) || !strings.Contains(byListQuery, `status of t as string`) {
+		t.Fatalf("expected structured task fields, got: %s", byListQuery)
+	}
+}
+
+func TestScriptAllProjectsStructured(t *testing.T) {
+	got := scriptAllProjectsStructured("bundle.id")
+	if !strings.Contains(got, `repeat with p in every project`) {
+		t.Fatalf("unexpected structured projects script: %s", got)
+	}
+	if !strings.Contains(got, `id of p as string`) || !strings.Contains(got, `status of p as string`) {
+		t.Fatalf("expected structured project fields, got: %s", got)
+	}
+}
+
 func TestScriptResolveTaskByNameEscapesInput(t *testing.T) {
 	got := scriptResolveTaskByName(`foo "bar"`)
 	if !strings.Contains(got, `\"bar\"`) {

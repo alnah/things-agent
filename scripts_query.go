@@ -38,6 +38,17 @@ func scriptAllProjects(bundleID string) string {
 end tell`, bundleID)
 }
 
+func scriptAllProjectsStructured(bundleID string) string {
+	return fmt.Sprintf(`tell application id "%s"
+  set outLines to {}
+  repeat with p in every project
+    set end of outLines to ((id of p as string) & tab & (name of p) & tab & (status of p as string))
+  end repeat
+  set AppleScript's text item delimiters to linefeed
+  return outLines as text
+end tell`, bundleID)
+}
+
 func scriptTasks(bundleID, listName, query string) string {
 	listName = strings.TrimSpace(listName)
 	query = strings.TrimSpace(query)
@@ -67,4 +78,37 @@ end tell`, bundleID, escapeApple(query), escapeApple(listName))
 
 func scriptSearch(bundleID, listName, query string) string {
 	return scriptTasks(bundleID, listName, query)
+}
+
+func scriptTasksStructured(bundleID, listName, query string) string {
+	listName = strings.TrimSpace(listName)
+	query = strings.TrimSpace(query)
+	filterPrefix := ""
+	filterBody := `every «class tstk»`
+	switch {
+	case listName == "" && query == "":
+		filterBody = `every «class tstk»`
+	case listName == "":
+		filterPrefix = fmt.Sprintf(`  set q to "%s"
+`, escapeApple(query))
+		filterBody = `every «class tstk» whose (name contains q or notes contains q)`
+	case query == "":
+		filterPrefix = fmt.Sprintf(`  set l to first list whose name is "%s"
+`, escapeApple(listName))
+		filterBody = `every «class tstk» of l`
+	default:
+		filterPrefix = fmt.Sprintf(`  set q to "%s"
+  set l to first list whose name is "%s"
+`, escapeApple(query), escapeApple(listName))
+		filterBody = `every «class tstk» of l whose (name contains q or notes contains q)`
+	}
+
+	return fmt.Sprintf(`tell application id "%s"
+%s  set outLines to {}
+  repeat with t in %s
+    set end of outLines to ((id of t as string) & tab & (name of t) & tab & (status of t as string))
+  end repeat
+  set AppleScript's text item delimiters to linefeed
+  return outLines as text
+end tell`, bundleID, filterPrefix, filterBody)
 }

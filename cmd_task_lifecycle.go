@@ -19,6 +19,7 @@ func resolveDestinationListName(value string) string {
 func newShowTaskCmd() *cobra.Command {
 	var name string
 	var withSubtasks bool
+	var jsonOutput bool
 	cmd := &cobra.Command{
 		Use:   "show-task",
 		Short: "Show full details for a task or project",
@@ -32,11 +33,15 @@ func newShowTaskCmd() *cobra.Command {
 			if name == "" {
 				return errors.New("--name is required")
 			}
+			if jsonOutput {
+				return runJSONResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, withSubtasks), parseShowTaskJSON)
+			}
 			return runResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, withSubtasks))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task or project name")
 	cmd.Flags().BoolVar(&withSubtasks, "with-subtasks", true, "Include subtasks")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }

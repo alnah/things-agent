@@ -159,7 +159,8 @@ func newListsCmd() *cobra.Command {
 }
 
 func newProjectsCmd() *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "projects",
 		Short: "List projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -168,13 +169,19 @@ func newProjectsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				return runJSONResult(ctx, cfg, scriptAllProjectsStructured(cfg.bundleID), parseProjectListJSON)
+			}
 			return runResult(ctx, cfg, scriptAllProjects(cfg.bundleID))
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
+	return cmd
 }
 
 func newTasksCmd() *cobra.Command {
 	var listName, query string
+	var jsonOutput bool
 	cmd := &cobra.Command{
 		Use:   "tasks",
 		Short: "List tasks (optionally filtered)",
@@ -184,16 +191,21 @@ func newTasksCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if jsonOutput {
+				return runJSONResult(ctx, cfg, scriptTasksStructured(cfg.bundleID, listName, query), parseTaskListJSON)
+			}
 			return runResult(ctx, cfg, scriptTasks(cfg.bundleID, listName, query))
 		},
 	}
 	cmd.Flags().StringVar(&listName, "list", "", "Domaine")
 	cmd.Flags().StringVar(&query, "query", "", "Filter by name / notes")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
 	return cmd
 }
 
 func newSearchCmd() *cobra.Command {
 	var listName, query string
+	var jsonOutput bool
 	cmd := &cobra.Command{
 		Use:   "search",
 		Short: "Search tasks",
@@ -206,11 +218,15 @@ func newSearchCmd() *cobra.Command {
 			if strings.TrimSpace(query) == "" {
 				return errors.New("--query is required")
 			}
+			if jsonOutput {
+				return runJSONResult(ctx, cfg, scriptTasksStructured(cfg.bundleID, listName, query), parseTaskListJSON)
+			}
 			return runResult(ctx, cfg, scriptSearch(cfg.bundleID, listName, query))
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "Search text")
 	cmd.Flags().StringVar(&listName, "list", "", "Limit to area")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
 	_ = cmd.MarkFlagRequired("query")
 	return cmd
 }
