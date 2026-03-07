@@ -272,7 +272,7 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 
 		scripts := fr.allScripts()
-		if len(scripts) == 0 || !strings.Contains(scripts[0], `first «class tstk» whose id is "task-1"`) {
+		if len(scripts) == 0 || !strings.Contains(scripts[0], `set tid to "task-1"`) || !strings.Contains(scripts[0], `&completed=true`) {
 			t.Fatalf("expected id-based task resolution, got %#v", scripts)
 		}
 	})
@@ -287,7 +287,7 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 
 		scripts := fr.allScripts()
-		if len(scripts) == 0 || !strings.Contains(scripts[len(scripts)-1], `first «class tstk» whose id is "task-1"`) {
+		if len(scripts) == 0 || !strings.Contains(scripts[len(scripts)-1], `every to do whose id is "task-1"`) {
 			t.Fatalf("expected task-id based checklist mutation, got %#v", scripts)
 		}
 	})

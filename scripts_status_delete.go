@@ -8,7 +8,7 @@ func scriptDelete(bundleID, kind, name string) (string, error) {
 	var subject string
 	switch kind {
 	case "task":
-		subject = "«class tstk»"
+		subject = "to do"
 	case "project":
 		subject = "project"
 	case "list":
@@ -34,13 +34,25 @@ end tell`, bundleID, scriptResolveProjectRef(name, id))
 }
 
 func scriptCompleteTask(bundleID, name, id string, done bool) string {
-	state := "open"
+	return fmt.Sprintf(`tell application id "%s"
+%s`, bundleID, scriptSetTaskCompletionByRef(bundleID, name, id, done, "AUTH_TOKEN_PLACEHOLDER"))
+}
+
+func scriptSetTaskCompletionByRef(bundleID, name, id string, done bool, authToken string) string {
+	state := "false"
 	if done {
-		state = "completed"
+		state = "true"
+	}
+	if id != "" {
+		return fmt.Sprintf(`tell application id "%s"
+  set tid to "%s"
+end tell
+open location "things:///update?auth-token=%s&id=" & tid & "&completed=%s"
+return tid`, bundleID, escapeApple(id), escapeApple(thingsQueryEscape(authToken)), state)
 	}
 	return fmt.Sprintf(`tell application id "%s"
-%s  if class of t is not «class tstk» then error "Selected item is not a task."
-  set status of t to %s
-  return id of t
-end tell`, bundleID, scriptResolveTaskRef(name, id), state)
+%s  set tid to id of t
+end tell
+open location "things:///update?auth-token=%s&id=" & tid & "&completed=%s"
+return tid`, bundleID, scriptResolveTaskRef(name, id), escapeApple(thingsQueryEscape(authToken)), state)
 }

@@ -139,6 +139,9 @@ func TestTaskLifecycleCommands(t *testing.T) {
 		if len(scripts) < 4 {
 			t.Fatalf("expected at least 4 scripts, got %d", len(scripts))
 		}
+		if !strings.Contains(strings.Join(scripts, "\n"), "things:///update?auth-token=token-test") {
+			t.Fatalf("expected URL completion update scripts, got %#v", scripts)
+		}
 	})
 
 	t.Run("complete task by id", func(t *testing.T) {
@@ -152,7 +155,7 @@ func TestTaskLifecycleCommands(t *testing.T) {
 		}
 
 		scripts := fr.allScripts()
-		if len(scripts) == 0 || !strings.Contains(scripts[0], `whose id is "task-1"`) {
+		if len(scripts) == 0 || !strings.Contains(scripts[0], `set tid to "task-1"`) || !strings.Contains(scripts[0], "&completed=true") {
 			t.Fatalf("unexpected complete-task --id script: %#v", scripts)
 		}
 	})

@@ -17,7 +17,7 @@ func scriptResolveItemRef(taskName, taskID string) string {
 	if taskID != "" {
 		return fmt.Sprintf(`  try
     set projectMatches to every project whose id is "%s"
-    set taskMatches to every «class tstk» whose id is "%s"
+    set taskMatches to every to do whose id is "%s"
     set projectCount to count of projectMatches
     set taskCount to count of taskMatches
     set totalCount to projectCount + taskCount
@@ -35,7 +35,7 @@ func scriptResolveItemRef(taskName, taskID string) string {
 	}
 	return fmt.Sprintf(`  try
     set projectMatches to every project whose name is "%s"
-    set taskMatches to every «class tstk» whose name is "%s"
+    set taskMatches to every to do whose name is "%s"
     set projectCount to count of projectMatches
     set taskCount to count of taskMatches
     set totalCount to projectCount + taskCount
@@ -57,14 +57,17 @@ func scriptResolveTaskRef(taskName, taskID string) string {
 	taskID = escapeApple(strings.TrimSpace(taskID))
 	if taskID != "" {
 		return fmt.Sprintf(`  try
-    set t to first «class tstk» whose id is "%s"
+    set taskMatches to every to do whose id is "%s"
+    if (count of taskMatches) is 0 then error "No task found with this id."
+    if (count of taskMatches) is greater than 1 then error "Ambiguous task id; use a unique id."
+    set t to item 1 of taskMatches
   on error errMsg
     error errMsg
   end try
 `, taskID)
 	}
 	return fmt.Sprintf(`  try
-    set taskMatches to every «class tstk» whose name is "%s"
+    set taskMatches to every to do whose name is "%s"
     set taskCount to count of taskMatches
     if taskCount is 0 then error "No task found with this name."
     if taskCount is greater than 1 then error "Ambiguous task name; use --id."
@@ -124,25 +127,25 @@ func scriptTasks(bundleID, listName, query string) string {
 	query = strings.TrimSpace(query)
 	if listName == "" && query == "" {
 		return fmt.Sprintf(`tell application id "%s"
-  return name of (every «class tstk»)
+  return name of (every to do)
 end tell`, bundleID)
 	}
 	if listName == "" {
 		return fmt.Sprintf(`tell application id "%s"
   set q to "%s"
-  return name of (every «class tstk» whose (name contains q or notes contains q))
+  return name of (every to do whose (name contains q or notes contains q))
 end tell`, bundleID, escapeApple(query))
 	}
 	if query == "" {
 		return fmt.Sprintf(`tell application id "%s"
   set l to first list whose name is "%s"
-  return name of (every «class tstk» of l)
+  return name of (every to do of l)
 end tell`, bundleID, escapeApple(listName))
 	}
 	return fmt.Sprintf(`tell application id "%s"
   set q to "%s"
   set l to first list whose name is "%s"
-  return name of (every «class tstk» of l whose (name contains q or notes contains q))
+  return name of (every to do of l whose (name contains q or notes contains q))
 end tell`, bundleID, escapeApple(query), escapeApple(listName))
 }
 
@@ -154,23 +157,23 @@ func scriptTasksStructured(bundleID, listName, query string) string {
 	listName = strings.TrimSpace(listName)
 	query = strings.TrimSpace(query)
 	filterPrefix := ""
-	filterBody := `every «class tstk»`
+	filterBody := `every to do`
 	switch {
 	case listName == "" && query == "":
-		filterBody = `every «class tstk»`
+		filterBody = `every to do`
 	case listName == "":
 		filterPrefix = fmt.Sprintf(`  set q to "%s"
 `, escapeApple(query))
-		filterBody = `every «class tstk» whose (name contains q or notes contains q)`
+		filterBody = `every to do whose (name contains q or notes contains q)`
 	case query == "":
 		filterPrefix = fmt.Sprintf(`  set l to first list whose name is "%s"
 `, escapeApple(listName))
-		filterBody = `every «class tstk» of l`
+		filterBody = `every to do of l`
 	default:
 		filterPrefix = fmt.Sprintf(`  set q to "%s"
   set l to first list whose name is "%s"
 `, escapeApple(query), escapeApple(listName))
-		filterBody = `every «class tstk» of l whose (name contains q or notes contains q)`
+		filterBody = `every to do of l whose (name contains q or notes contains q)`
 	}
 
 	return fmt.Sprintf(`tell application id "%s"

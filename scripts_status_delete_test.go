@@ -10,7 +10,7 @@ func TestScriptDeleteKinds(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(task, `delete first «class tstk»`) {
+	if !strings.Contains(task, `delete first to do`) {
 		t.Fatalf("unexpected task delete script: %s", task)
 	}
 
@@ -39,12 +39,15 @@ func TestScriptDeleteUnknownKind(t *testing.T) {
 }
 
 func TestScriptCompleteTaskStates(t *testing.T) {
-	done := scriptCompleteTask("bundle.id", "task", "", true)
-	if !strings.Contains(done, "set status of t to completed") {
+	done := scriptSetTaskCompletionByRef("bundle.id", "task", "", true, "token")
+	if !strings.Contains(done, "things:///update?auth-token=token") || !strings.Contains(done, "&completed=true") {
 		t.Fatalf("unexpected completed script: %s", done)
 	}
-	open := scriptCompleteTask("bundle.id", "task", "", false)
-	if !strings.Contains(open, "set status of t to open") {
+	if !strings.Contains(done, "set tid to id of t") {
+		t.Fatalf("expected resolver-backed task id extraction: %s", done)
+	}
+	open := scriptSetTaskCompletionByRef("bundle.id", "", "task-1", false, "token")
+	if !strings.Contains(open, `set tid to "task-1"`) || !strings.Contains(open, "&completed=false") {
 		t.Fatalf("unexpected open script: %s", open)
 	}
 }

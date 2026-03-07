@@ -7,7 +7,7 @@ import (
 
 func TestScriptTasksBranches(t *testing.T) {
 	all := scriptTasks("bundle.id", "", "")
-	if !strings.Contains(all, `return name of (every «class tstk»)`) {
+	if !strings.Contains(all, `return name of (every to do)`) {
 		t.Fatalf("unexpected all-tasks script: %s", all)
 	}
 
@@ -37,7 +37,7 @@ func TestScriptSearchAliasesTasks(t *testing.T) {
 
 func TestScriptTasksStructuredBranches(t *testing.T) {
 	all := scriptTasksStructured("bundle.id", "", "")
-	if !strings.Contains(all, `repeat with t in every «class tstk»`) {
+	if !strings.Contains(all, `repeat with t in every to do`) {
 		t.Fatalf("unexpected structured all-tasks script: %s", all)
 	}
 
@@ -88,14 +88,14 @@ func TestScriptResolveItemByID(t *testing.T) {
 	if !strings.Contains(got, `every project whose id is "task-1"`) {
 		t.Fatalf("expected project id lookup, got: %s", got)
 	}
-	if !strings.Contains(got, `every «class tstk» whose id is "task-1"`) {
+	if !strings.Contains(got, `every to do whose id is "task-1"`) {
 		t.Fatalf("expected task id lookup, got: %s", got)
 	}
 }
 
 func TestScriptResolveTaskByID(t *testing.T) {
 	got := scriptResolveTaskByID("task-1")
-	if !strings.Contains(got, `first «class tstk» whose id is "task-1"`) {
+	if !strings.Contains(got, `every to do whose id is "task-1"`) || !strings.Contains(got, `No task found with this id.`) {
 		t.Fatalf("expected task id lookup, got: %s", got)
 	}
 }

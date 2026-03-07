@@ -269,7 +269,11 @@ func newCompleteTaskCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, id, true))
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptSetTaskCompletionByRef(cfg.bundleID, name, id, true, token))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -295,7 +299,11 @@ func newUncompleteTaskCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, id, false))
+			token, err := requireAuthToken(cfg)
+			if err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptSetTaskCompletionByRef(cfg.bundleID, name, id, false, token))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
