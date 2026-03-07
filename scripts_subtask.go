@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func scriptListSubtasks(bundleID, taskName string) string {
+func scriptListSubtasks(bundleID, taskName, taskID string) string {
 	taskName = strings.TrimSpace(taskName)
 	return fmt.Sprintf(`tell application id "%s"
 %s  try
@@ -26,14 +26,14 @@ func scriptListSubtasks(bundleID, taskName string) string {
     set out to out & linefeed & outLine
   end repeat
   return out
-end tell`, bundleID, scriptResolveTaskByName(taskName))
+end tell`, bundleID, scriptResolveTaskRef(taskName, taskID))
 }
 
-func scriptAddSubtask(bundleID, taskName, subtaskName, notes string) string {
+func scriptAddSubtask(bundleID, taskName, taskID, subtaskName, notes string) string {
 	script := fmt.Sprintf(`tell application id "%s"
 %s  try
     set s to make new to do at end of to dos of t with properties {name:"%s"}
-`, bundleID, scriptResolveTaskByName(taskName), escapeApple(subtaskName))
+`, bundleID, scriptResolveTaskRef(taskName, taskID), escapeApple(subtaskName))
 	if strings.TrimSpace(notes) != "" {
 		script += fmt.Sprintf(`  set notes of s to "%s"
 `, escapeApple(notes))
@@ -46,7 +46,7 @@ end tell`
 	return script
 }
 
-func scriptFindSubtask(bundleID, taskName, subtaskName string, index int) string {
+func scriptFindSubtask(bundleID, taskName, taskID, subtaskName string, index int) string {
 	taskName = strings.TrimSpace(taskName)
 	subtaskName = strings.TrimSpace(subtaskName)
 	var target string
@@ -61,10 +61,10 @@ func scriptFindSubtask(bundleID, taskName, subtaskName string, index int) string
   on error
     error "No subtask found on this item."
   end try
-`, bundleID, scriptResolveTaskByName(taskName), target)
+`, bundleID, scriptResolveTaskRef(taskName, taskID), target)
 }
 
-func scriptShowTask(bundleID, taskName string, withSubtasks bool) string {
+func scriptShowTask(bundleID, taskName, taskID string, withSubtasks bool) string {
 	subtasksBlock := "false"
 	if withSubtasks {
 		subtasksBlock = "true"
@@ -132,11 +132,11 @@ func scriptShowTask(bundleID, taskName string, withSubtasks bool) string {
     end try
   end if
   return out
-end tell`, bundleID, scriptResolveTaskByName(taskName), subtasksBlock)
+end tell`, bundleID, scriptResolveItemRef(taskName, taskID), subtasksBlock)
 }
 
-func scriptEditSubtask(bundleID, taskName, subtaskName string, index int, newName, notes string) string {
-	script := scriptFindSubtask(bundleID, taskName, subtaskName, index)
+func scriptEditSubtask(bundleID, taskName, taskID, subtaskName string, index int, newName, notes string) string {
+	script := scriptFindSubtask(bundleID, taskName, taskID, subtaskName, index)
 	if newName != "" {
 		script += fmt.Sprintf(`  set name of s to "%s"
 `, escapeApple(newName))
@@ -150,20 +150,20 @@ end tell`
 	return script
 }
 
-func scriptDeleteSubtask(bundleID, taskName, subtaskName string, index int) string {
-	script := scriptFindSubtask(bundleID, taskName, subtaskName, index)
+func scriptDeleteSubtask(bundleID, taskName, taskID, subtaskName string, index int) string {
+	script := scriptFindSubtask(bundleID, taskName, taskID, subtaskName, index)
 	script += `  delete s
   return "ok"
 end tell`
 	return script
 }
 
-func scriptSetSubtaskStatus(bundleID, taskName, subtaskName string, index int, done bool) string {
+func scriptSetSubtaskStatus(bundleID, taskName, taskID, subtaskName string, index int, done bool) string {
 	state := "open"
 	if done {
 		state = "completed"
 	}
-	script := scriptFindSubtask(bundleID, taskName, subtaskName, index)
+	script := scriptFindSubtask(bundleID, taskName, taskID, subtaskName, index)
 	script += fmt.Sprintf(`  set status of s to %s
   return id of s
 end tell`, state)

@@ -34,8 +34,34 @@ func resolveTaskDestination(areaName, projectName string) (string, string, error
 	return "", "", errors.New("destination is required: use --area, --project, or THINGS_DEFAULT_LIST")
 }
 
+func resolveEntitySelector(name, id string) (string, string, error) {
+	name = strings.TrimSpace(name)
+	id = strings.TrimSpace(id)
+	switch {
+	case name == "" && id == "":
+		return "", "", errors.New("exactly one of --name or --id is required")
+	case name != "" && id != "":
+		return "", "", errors.New("exactly one of --name or --id is allowed")
+	default:
+		return name, id, nil
+	}
+}
+
+func resolveTaskParentSelector(taskName, taskID string) (string, string, error) {
+	taskName = strings.TrimSpace(taskName)
+	taskID = strings.TrimSpace(taskID)
+	switch {
+	case taskName == "" && taskID == "":
+		return "", "", errors.New("exactly one of --task or --task-id is required")
+	case taskName != "" && taskID != "":
+		return "", "", errors.New("exactly one of --task or --task-id is allowed")
+	default:
+		return taskName, taskID, nil
+	}
+}
+
 func newShowTaskCmd() *cobra.Command {
-	var name string
+	var name, id string
 	var withSubtasks bool
 	var jsonOutput bool
 	cmd := &cobra.Command{
@@ -47,20 +73,20 @@ func newShowTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			name = strings.TrimSpace(name)
-			if name == "" {
-				return errors.New("--name is required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
 			}
 			if jsonOutput {
-				return runJSONResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, withSubtasks), parseShowTaskJSON)
+				return runJSONResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, id, withSubtasks), parseShowTaskJSON)
 			}
-			return runResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, withSubtasks))
+			return runResult(ctx, cfg, scriptShowTask(cfg.bundleID, name, id, withSubtasks))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task or project name")
+	cmd.Flags().StringVar(&id, "id", "", "Task or project ID")
 	cmd.Flags().BoolVar(&withSubtasks, "with-subtasks", true, "Include subtasks")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
-	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
@@ -132,7 +158,7 @@ func newAddTaskCmd() *cobra.Command {
 }
 
 func newEditTaskCmd() *cobra.Command {
-	var sourceName, newName, notes, tags, moveTo, due, completion, creation, cancel string
+	var sourceName, sourceID, newName, notes, tags, moveTo, due, completion, creation, cancel string
 	cmd := &cobra.Command{
 		Use:   "edit-task",
 		Short: "Edit a task (by name)",
@@ -142,8 +168,9 @@ func newEditTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(sourceName) == "" {
-				return errors.New("--name is required")
+			sourceName, sourceID, err = resolveEntitySelector(sourceName, sourceID)
+			if err != nil {
+				return err
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -169,6 +196,7 @@ func newEditTaskCmd() *cobra.Command {
 			script, err := scriptEditTask(
 				cfg.bundleID,
 				sourceName,
+				sourceID,
 				newName,
 				notes,
 				tags,
@@ -185,6 +213,7 @@ func newEditTaskCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&sourceName, "name", "", "Task name to edit")
+	cmd.Flags().StringVar(&sourceID, "id", "", "Task ID to edit")
 	cmd.Flags().StringVar(&newName, "new-name", "", "New name")
 	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
 	cmd.Flags().StringVar(&tags, "tags", "", "Tags")
@@ -193,16 +222,37 @@ func newEditTaskCmd() *cobra.Command {
 	cmd.Flags().StringVar(&completion, "completion", "", "Completion date")
 	cmd.Flags().StringVar(&creation, "creation", "", "Creation date")
 	cmd.Flags().StringVar(&cancel, "cancel", "", "Cancellation date")
-	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
 func newDeleteTaskCmd() *cobra.Command {
-	return newDeleteCmd("task", "delete-task")
+	var name, id string
+	cmd := &cobra.Command{
+		Use:   "delete-task",
+		Short: "Delete a task",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptDeleteTaskRef(cfg.bundleID, name, id))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
+	return cmd
 }
 
 func newCompleteTaskCmd() *cobra.Command {
-	var name string
+	var name, id string
 	cmd := &cobra.Command{
 		Use:   "complete-task",
 		Short: "Mark task as completed",
@@ -212,22 +262,23 @@ func newCompleteTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" {
-				return errors.New("--name is required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, true))
+			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, id, true))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
-	_ = cmd.MarkFlagRequired("name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	return cmd
 }
 
 func newUncompleteTaskCmd() *cobra.Command {
-	var name string
+	var name, id string
 	cmd := &cobra.Command{
 		Use:   "uncomplete-task",
 		Short: "Mark task as uncompleted",
@@ -237,16 +288,17 @@ func newUncompleteTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" {
-				return errors.New("--name is required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, false))
+			return runResult(ctx, cfg, scriptCompleteTask(cfg.bundleID, name, id, false))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
-	_ = cmd.MarkFlagRequired("name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	return cmd
 }

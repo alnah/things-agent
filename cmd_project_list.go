@@ -69,7 +69,7 @@ end tell`, cfg.bundleID, escapeApple(name))
 }
 
 func newEditProjectCmd() *cobra.Command {
-	var sourceName, newName, notes string
+	var sourceName, sourceID, newName, notes string
 	cmd := &cobra.Command{
 		Use:   "edit-project",
 		Short: "Edit a project (by name)",
@@ -79,8 +79,9 @@ func newEditProjectCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(sourceName) == "" {
-				return errors.New("--name is required")
+			sourceName, sourceID, err = resolveEntitySelector(sourceName, sourceID)
+			if err != nil {
+				return err
 			}
 			if strings.TrimSpace(newName) == "" && strings.TrimSpace(notes) == "" {
 				return errors.New("specify --new-name and/or --notes")
@@ -88,13 +89,13 @@ func newEditProjectCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptEditProject(cfg.bundleID, sourceName, newName, notes))
+			return runResult(ctx, cfg, scriptEditProjectRef(cfg.bundleID, sourceName, sourceID, newName, notes))
 		},
 	}
 	cmd.Flags().StringVar(&sourceName, "name", "", "Project name")
+	cmd.Flags().StringVar(&sourceID, "id", "", "Project ID")
 	cmd.Flags().StringVar(&newName, "new-name", "", "New name")
 	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
-	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
@@ -133,7 +134,29 @@ end tell`, cfg.bundleID, escapeApple(sourceName), escapeApple(newName))
 }
 
 func newDeleteProjectCmd() *cobra.Command {
-	return newDeleteCmd("project", "delete-project")
+	var name, id string
+	cmd := &cobra.Command{
+		Use:   "delete-project",
+		Short: "Delete a project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			cfg, err := resolveRuntimeConfig(ctx)
+			if err != nil {
+				return err
+			}
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
+			}
+			if err := backupIfNeeded(ctx, cfg); err != nil {
+				return err
+			}
+			return runResult(ctx, cfg, scriptDeleteProjectRef(cfg.bundleID, name, id))
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "", "Project name")
+	cmd.Flags().StringVar(&id, "id", "", "Project ID")
+	return cmd
 }
 
 func newDeleteListCmd() *cobra.Command {

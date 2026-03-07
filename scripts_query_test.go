@@ -61,7 +61,7 @@ func TestScriptAllProjectsStructured(t *testing.T) {
 }
 
 func TestScriptResolveTaskByNameEscapesInput(t *testing.T) {
-	got := scriptResolveTaskByName(`foo "bar"`)
+	got := scriptResolveItemRef(`foo "bar"`, "")
 	if !strings.Contains(got, `\"bar\"`) {
 		t.Fatalf("expected escaped task name, got: %s", got)
 	}
@@ -70,5 +70,29 @@ func TestScriptResolveTaskByNameEscapesInput(t *testing.T) {
 	}
 	if !strings.Contains(got, "set totalCount to projectCount + taskCount") {
 		t.Fatalf("expected combined match count, got: %s", got)
+	}
+}
+
+func TestScriptResolveItemByID(t *testing.T) {
+	got := scriptResolveItemRef("", "task-1")
+	if !strings.Contains(got, `every project whose id is "task-1"`) {
+		t.Fatalf("expected project id lookup, got: %s", got)
+	}
+	if !strings.Contains(got, `every «class tstk» whose id is "task-1"`) {
+		t.Fatalf("expected task id lookup, got: %s", got)
+	}
+}
+
+func TestScriptResolveTaskByID(t *testing.T) {
+	got := scriptResolveTaskByID("task-1")
+	if !strings.Contains(got, `first «class tstk» whose id is "task-1"`) {
+		t.Fatalf("expected task id lookup, got: %s", got)
+	}
+}
+
+func TestScriptResolveProjectByID(t *testing.T) {
+	got := scriptResolveProjectRef("", "project-1")
+	if !strings.Contains(got, `first project whose id is "project-1"`) {
+		t.Fatalf("expected project id lookup, got: %s", got)
 	}
 }

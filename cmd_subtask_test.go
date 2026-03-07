@@ -63,6 +63,28 @@ func TestSubtaskCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("subtask commands support task-id", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntimeWithDB(t, fr)
+
+		add := newAddSubtaskCmd()
+		add.SetArgs([]string{"--task-id", "task-1", "--name", "sub-a"})
+		if err := add.Execute(); err != nil {
+			t.Fatalf("add-subtask --task-id failed: %v", err)
+		}
+
+		list := newListSubtasksCmd()
+		list.SetArgs([]string{"--task-id", "task-1"})
+		if err := list.Execute(); err != nil {
+			t.Fatalf("list-subtasks --task-id failed: %v", err)
+		}
+
+		scripts := strings.Join(fr.allScripts(), "\n")
+		if !strings.Contains(scripts, `first «class tstk» whose id is "task-1"`) {
+			t.Fatalf("expected task-id selector in subtask scripts, got %s", scripts)
+		}
+	})
+
 	t.Run("validation branches", func(t *testing.T) {
 		fr := &fakeRunner{}
 		setupTestRuntime(t, t.TempDir(), fr)
@@ -91,21 +113,21 @@ func TestSubtaskCommands(t *testing.T) {
 		listBlankTask := newListSubtasksCmd()
 		listBlankTask.SetArgs([]string{"--task", "   "})
 		err = listBlankTask.Execute()
-		if err == nil || !strings.Contains(err.Error(), "--task is required") {
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --task or --task-id") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		completeBlankTask := newCompleteSubtaskCmd()
 		completeBlankTask.SetArgs([]string{"--task", "   ", "--name", "sub"})
 		err = completeBlankTask.Execute()
-		if err == nil || !strings.Contains(err.Error(), "--task is required") {
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --task or --task-id") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		uncompleteBlankTask := newUncompleteSubtaskCmd()
 		uncompleteBlankTask.SetArgs([]string{"--task", "   ", "--name", "sub"})
 		err = uncompleteBlankTask.Execute()
-		if err == nil || !strings.Contains(err.Error(), "--task is required") {
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --task or --task-id") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
@@ -117,6 +139,12 @@ func TestSubtaskCommands(t *testing.T) {
 		err = addMissingToken.Execute()
 		if err == nil || !strings.Contains(err.Error(), "auth-token is required") {
 			t.Fatalf("unexpected error: %v", err)
+		}
+
+		listMissingSelector := newListSubtasksCmd()
+		err = listMissingSelector.Execute()
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --task or --task-id") {
+			t.Fatalf("unexpected selector error: %v", err)
 		}
 	})
 }

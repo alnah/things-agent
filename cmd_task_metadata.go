@@ -9,7 +9,7 @@ import (
 )
 
 func newSetTagsCmd() *cobra.Command {
-	var name, tags string
+	var name, id, tags string
 	cmd := &cobra.Command{
 		Use:   "set-tags",
 		Short: "Set tags on a task or project",
@@ -19,8 +19,12 @@ func newSetTagsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name and --tags are required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(tags) == "" {
+				return errors.New("--tags is required")
 			}
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
@@ -28,19 +32,19 @@ func newSetTagsCmd() *cobra.Command {
 			script := fmt.Sprintf(`tell application id "%s"
 %s  set tag names of t to "%s"
   return id of t
-end tell`, cfg.bundleID, scriptResolveTaskByName(name), escapeApple(tags))
+end tell`, cfg.bundleID, scriptResolveItemRef(name, id), escapeApple(tags))
 			return runResult(ctx, cfg, script)
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task or project ID")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
-	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
 }
 
 func newSetTaskTagsCmd() *cobra.Command {
-	var name, tags string
+	var name, id, tags string
 	cmd := &cobra.Command{
 		Use:   "set-task-tags",
 		Short: "Set task tags exactly",
@@ -50,8 +54,12 @@ func newSetTaskTagsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name and --tags are required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(tags) == "" {
+				return errors.New("--tags is required")
 			}
 			tagList := parseCSVList(tags)
 			if len(tagList) == 0 {
@@ -60,18 +68,18 @@ func newSetTaskTagsCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptSetTaskTags(cfg.bundleID, name, tagList))
+			return runResult(ctx, cfg, scriptSetTaskTags(cfg.bundleID, name, id, tagList))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
-	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
 }
 
 func newAddTaskTagsCmd() *cobra.Command {
-	var name, tags string
+	var name, id, tags string
 	cmd := &cobra.Command{
 		Use:   "add-task-tags",
 		Short: "Add tags to a task (merge with existing tags)",
@@ -81,8 +89,12 @@ func newAddTaskTagsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name and --tags are required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(tags) == "" {
+				return errors.New("--tags is required")
 			}
 			tagList := parseCSVList(tags)
 			if len(tagList) == 0 {
@@ -91,18 +103,18 @@ func newAddTaskTagsCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptAddTaskTags(cfg.bundleID, name, tagList))
+			return runResult(ctx, cfg, scriptAddTaskTags(cfg.bundleID, name, id, tagList))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
-	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
 }
 
 func newRemoveTaskTagsCmd() *cobra.Command {
-	var name, tags string
+	var name, id, tags string
 	cmd := &cobra.Command{
 		Use:   "remove-task-tags",
 		Short: "Remove tags from a task",
@@ -112,8 +124,12 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" || strings.TrimSpace(tags) == "" {
-				return errors.New("--name and --tags are required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(tags) == "" {
+				return errors.New("--tags is required")
 			}
 			tagList := parseCSVList(tags)
 			if len(tagList) == 0 {
@@ -122,18 +138,18 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptRemoveTaskTags(cfg.bundleID, name, tagList))
+			return runResult(ctx, cfg, scriptRemoveTaskTags(cfg.bundleID, name, id, tagList))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tagss")
-	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("tags")
 	return cmd
 }
 
 func newSetTaskNotesCmd() *cobra.Command {
-	var name, notes string
+	var name, id, notes string
 	cmd := &cobra.Command{
 		Use:   "set-task-notes",
 		Short: "Set task notes",
@@ -143,8 +159,9 @@ func newSetTaskNotesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" {
-				return errors.New("--name is required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
 			}
 			if strings.TrimSpace(notes) == "" {
 				return errors.New("--notes is required")
@@ -152,18 +169,18 @@ func newSetTaskNotesCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptSetTaskNotes(cfg.bundleID, name, notes))
+			return runResult(ctx, cfg, scriptSetTaskNotes(cfg.bundleID, name, id, notes))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	cmd.Flags().StringVar(&notes, "notes", "", "New notes")
-	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("notes")
 	return cmd
 }
 
 func newAppendTaskNotesCmd() *cobra.Command {
-	var name, notes, separator string
+	var name, id, notes, separator string
 	cmd := &cobra.Command{
 		Use:   "append-task-notes",
 		Short: "Append notes to task notes",
@@ -173,8 +190,9 @@ func newAppendTaskNotesCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" {
-				return errors.New("--name is required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
 			}
 			if strings.TrimSpace(notes) == "" {
 				return errors.New("--notes is required")
@@ -182,19 +200,19 @@ func newAppendTaskNotesCmd() *cobra.Command {
 			if err := backupIfNeeded(ctx, cfg); err != nil {
 				return err
 			}
-			return runResult(ctx, cfg, scriptAppendTaskNotes(cfg.bundleID, name, notes, separator))
+			return runResult(ctx, cfg, scriptAppendTaskNotes(cfg.bundleID, name, id, notes, separator))
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	cmd.Flags().StringVar(&notes, "notes", "", "Text to append to notes")
 	cmd.Flags().StringVar(&separator, "separator", "\n", "Append separator (default: newline)")
-	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("notes")
 	return cmd
 }
 
 func newSetTaskDateCmd() *cobra.Command {
-	var name, due, deadline string
+	var name, id, due, deadline string
 	var clearDue, clearDeadline bool
 	cmd := &cobra.Command{
 		Use:   "set-task-date",
@@ -205,8 +223,9 @@ func newSetTaskDateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(name) == "" {
-				return errors.New("--name is required")
+			name, id, err = resolveEntitySelector(name, id)
+			if err != nil {
+				return err
 			}
 			dueDate, err := parseToAppleDate(due)
 			if err != nil {
@@ -223,7 +242,7 @@ func newSetTaskDateCmd() *cobra.Command {
 				return err
 			}
 			if clearDue || dueDate != "" {
-				if err := runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, dueDate, clearDue)); err != nil {
+				if err := runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, id, dueDate, clearDue)); err != nil {
 					return err
 				}
 			}
@@ -233,9 +252,9 @@ func newSetTaskDateCmd() *cobra.Command {
 					return err
 				}
 				if clearDeadline && deadlineDate == "" {
-					return runResult(ctx, cfg, scriptClearTaskDeadlineByName(cfg.bundleID, name, token))
+					return runResult(ctx, cfg, scriptClearTaskDeadlineByRef(cfg.bundleID, name, id, token))
 				}
-				if err := runResult(ctx, cfg, scriptSetTaskDeadlineByName(cfg.bundleID, name, deadlineDate, token)); err != nil {
+				if err := runResult(ctx, cfg, scriptSetTaskDeadlineByRef(cfg.bundleID, name, id, deadlineDate, token)); err != nil {
 					return err
 				}
 			}
@@ -243,10 +262,10 @@ func newSetTaskDateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
+	cmd.Flags().StringVar(&id, "id", "", "Task ID")
 	cmd.Flags().StringVar(&due, "due", "", "New due date (YYYY-MM-DD [HH:mm[:ss]])")
 	cmd.Flags().StringVar(&deadline, "deadline", "", "New deadline (YYYY-MM-DD [HH:mm[:ss]])")
 	cmd.Flags().BoolVar(&clearDue, "clear-due", false, "Clear due date")
 	cmd.Flags().BoolVar(&clearDeadline, "clear-deadline", false, "Clear deadline")
-	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }

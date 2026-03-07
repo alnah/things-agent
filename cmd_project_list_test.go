@@ -52,6 +52,28 @@ func TestProjectListCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("edit and delete by id", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntimeWithDB(t, fr)
+
+		editProject := newEditProjectCmd()
+		editProject.SetArgs([]string{"--id", "project-1", "--new-name", "p2"})
+		if err := editProject.Execute(); err != nil {
+			t.Fatalf("edit-project --id failed: %v", err)
+		}
+
+		deleteProject := newDeleteProjectCmd()
+		deleteProject.SetArgs([]string{"--id", "project-1"})
+		if err := deleteProject.Execute(); err != nil {
+			t.Fatalf("delete-project --id failed: %v", err)
+		}
+
+		scripts := strings.Join(fr.allScripts(), "\n")
+		if !strings.Contains(scripts, `first project whose id is "project-1"`) {
+			t.Fatalf("expected id-based project script, got %s", scripts)
+		}
+	})
+
 	t.Run("validation errors", func(t *testing.T) {
 		fr := &fakeRunner{}
 		setupTestRuntime(t, t.TempDir(), fr)
@@ -90,6 +112,13 @@ func TestProjectListCommands(t *testing.T) {
 		err = addProjectMissingDestination.Execute()
 		if err == nil || !strings.Contains(err.Error(), "destination is required") {
 			t.Fatalf("unexpected error: %v", err)
+		}
+
+		editProjectMissingSelector := newEditProjectCmd()
+		editProjectMissingSelector.SetArgs([]string{"--new-name", "p2"})
+		err = editProjectMissingSelector.Execute()
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --name or --id") {
+			t.Fatalf("unexpected selector error: %v", err)
 		}
 	})
 

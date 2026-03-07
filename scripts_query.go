@@ -11,8 +11,28 @@ func scriptAllLists(bundleID string) string {
 end tell`, bundleID)
 }
 
-func scriptResolveTaskByName(taskName string) string {
-	taskName = escapeApple(taskName)
+func scriptResolveItemRef(taskName, taskID string) string {
+	taskName = escapeApple(strings.TrimSpace(taskName))
+	taskID = escapeApple(strings.TrimSpace(taskID))
+	if taskID != "" {
+		return fmt.Sprintf(`  try
+    set projectMatches to every project whose id is "%s"
+    set taskMatches to every «class tstk» whose id is "%s"
+    set projectCount to count of projectMatches
+    set taskCount to count of taskMatches
+    set totalCount to projectCount + taskCount
+    if totalCount is 0 then error "No item found with this id."
+    if totalCount is greater than 1 then error "Ambiguous item id; use a unique id."
+    if projectCount is 1 then
+      set t to item 1 of projectMatches
+    else
+      set t to item 1 of taskMatches
+    end if
+  on error errMsg
+    error errMsg
+  end try
+`, taskID, taskID)
+	}
 	return fmt.Sprintf(`  try
     set projectMatches to every project whose name is "%s"
     set taskMatches to every «class tstk» whose name is "%s"
@@ -30,6 +50,56 @@ func scriptResolveTaskByName(taskName string) string {
     error errMsg
   end try
 `, taskName, taskName)
+}
+
+func scriptResolveTaskRef(taskName, taskID string) string {
+	taskName = escapeApple(strings.TrimSpace(taskName))
+	taskID = escapeApple(strings.TrimSpace(taskID))
+	if taskID != "" {
+		return fmt.Sprintf(`  try
+    set t to first «class tstk» whose id is "%s"
+  on error errMsg
+    error errMsg
+  end try
+`, taskID)
+	}
+	return fmt.Sprintf(`  try
+    set taskMatches to every «class tstk» whose name is "%s"
+    set taskCount to count of taskMatches
+    if taskCount is 0 then error "No task found with this name."
+    if taskCount is greater than 1 then error "Ambiguous task name; use --id."
+    set t to item 1 of taskMatches
+  on error errMsg
+    error errMsg
+  end try
+`, taskName)
+}
+
+func scriptResolveTaskByName(taskName string) string {
+	return scriptResolveTaskRef(taskName, "")
+}
+
+func scriptResolveTaskByID(taskID string) string {
+	return scriptResolveTaskRef("", taskID)
+}
+
+func scriptResolveProjectRef(projectName, projectID string) string {
+	projectName = escapeApple(strings.TrimSpace(projectName))
+	projectID = escapeApple(strings.TrimSpace(projectID))
+	if projectID != "" {
+		return fmt.Sprintf(`  try
+    set p to first project whose id is "%s"
+  on error errMsg
+    error errMsg
+  end try
+`, projectID)
+	}
+	return fmt.Sprintf(`  try
+    set p to first project whose name is "%s"
+  on error errMsg
+    error errMsg
+  end try
+`, projectName)
 }
 
 func scriptAllProjects(bundleID string) string {

@@ -20,6 +20,20 @@ func TestTaskLifecycleCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("show task by id", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntime(t, t.TempDir(), fr)
+		cmd := newShowTaskCmd()
+		cmd.SetArgs([]string{"--id", "task-1", "--with-subtasks=false"})
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("show-task --id failed: %v", err)
+		}
+		scripts := fr.allScripts()
+		if len(scripts) != 1 || !strings.Contains(scripts[0], `whose id is "task-1"`) {
+			t.Fatalf("unexpected id-based show-task script: %#v", scripts)
+		}
+	})
+
 	t.Run("add task success with checklist", func(t *testing.T) {
 		fr := &fakeRunner{output: "task-id-1"}
 		setupTestRuntimeWithDB(t, fr)
@@ -127,6 +141,22 @@ func TestTaskLifecycleCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("complete task by id", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntimeWithDB(t, fr)
+
+		complete := newCompleteTaskCmd()
+		complete.SetArgs([]string{"--id", "task-1"})
+		if err := complete.Execute(); err != nil {
+			t.Fatalf("complete-task --id failed: %v", err)
+		}
+
+		scripts := fr.allScripts()
+		if len(scripts) == 0 || !strings.Contains(scripts[0], `whose id is "task-1"`) {
+			t.Fatalf("unexpected complete-task --id script: %#v", scripts)
+		}
+	})
+
 	t.Run("edit task invalid completion date", func(t *testing.T) {
 		fr := &fakeRunner{}
 		setupTestRuntimeWithDB(t, fr)
@@ -145,15 +175,34 @@ func TestTaskLifecycleCommands(t *testing.T) {
 		complete := newCompleteTaskCmd()
 		complete.SetArgs([]string{"--name", "   "})
 		err := complete.Execute()
-		if err == nil || !strings.Contains(err.Error(), "--name is required") {
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --name or --id") {
 			t.Fatalf("unexpected complete-task error: %v", err)
 		}
 
 		uncomplete := newUncompleteTaskCmd()
 		uncomplete.SetArgs([]string{"--name", "   "})
 		err = uncomplete.Execute()
-		if err == nil || !strings.Contains(err.Error(), "--name is required") {
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --name or --id") {
 			t.Fatalf("unexpected uncomplete-task error: %v", err)
+		}
+	})
+
+	t.Run("task target validation requires exactly one selector", func(t *testing.T) {
+		fr := &fakeRunner{}
+		setupTestRuntimeWithDB(t, fr)
+
+		edit := newEditTaskCmd()
+		edit.SetArgs([]string{"--new-name", "task-b"})
+		err := edit.Execute()
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --name or --id") {
+			t.Fatalf("unexpected edit-task selector error: %v", err)
+		}
+
+		complete := newCompleteTaskCmd()
+		complete.SetArgs([]string{"--name", "task-a", "--id", "task-1"})
+		err = complete.Execute()
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --name or --id") {
+			t.Fatalf("unexpected complete-task selector error: %v", err)
 		}
 	})
 }

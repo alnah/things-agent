@@ -57,6 +57,22 @@ func TestTaskMetadataCommands(t *testing.T) {
 		}
 	})
 
+	t.Run("metadata commands by id", func(t *testing.T) {
+		fr := &fakeRunner{output: "ok"}
+		setupTestRuntimeWithDB(t, fr)
+
+		setNotes := newSetTaskNotesCmd()
+		setNotes.SetArgs([]string{"--id", "task-1", "--notes", "hello"})
+		if err := setNotes.Execute(); err != nil {
+			t.Fatalf("set-task-notes --id failed: %v", err)
+		}
+
+		scripts := fr.allScripts()
+		if len(scripts) == 0 || !strings.Contains(scripts[0], `whose id is "task-1"`) {
+			t.Fatalf("unexpected id-based metadata script: %#v", scripts)
+		}
+	})
+
 	t.Run("set-task-date success and clear", func(t *testing.T) {
 		fr := &fakeRunner{output: "ok"}
 		setupTestRuntimeWithDB(t, fr)
@@ -117,7 +133,7 @@ func TestTaskMetadataCommands(t *testing.T) {
 		setTags := newSetTagsCmd()
 		setTags.SetArgs([]string{"--name", "task-a", "--tags", "   "})
 		err = setTags.Execute()
-		if err == nil || !strings.Contains(err.Error(), "--name and --tags are required") {
+		if err == nil || !strings.Contains(err.Error(), "--tags is required") {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
@@ -153,6 +169,18 @@ func TestTaskMetadataCommands(t *testing.T) {
 		err := cmd.Execute()
 		if err == nil || !strings.Contains(err.Error(), "auth-token is required") {
 			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("metadata target validation requires exactly one selector", func(t *testing.T) {
+		fr := &fakeRunner{}
+		setupTestRuntimeWithDB(t, fr)
+
+		setNotes := newSetTaskNotesCmd()
+		setNotes.SetArgs([]string{"--notes", "hello"})
+		err := setNotes.Execute()
+		if err == nil || !strings.Contains(err.Error(), "exactly one of --name or --id") {
+			t.Fatalf("unexpected selector error: %v", err)
 		}
 	})
 }

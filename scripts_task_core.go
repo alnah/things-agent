@@ -74,12 +74,15 @@ return tid`, bundleID, escapeApple(taskID), escapeApple(thingsQueryEscape(authTo
 }
 
 func scriptAppendChecklistByName(bundleID, taskName string, items []string, authToken string) string {
+	return scriptAppendChecklistByRef(bundleID, taskName, "", items, authToken)
+}
+
+func scriptAppendChecklistByRef(bundleID, taskName, taskID string, items []string, authToken string) string {
 	return fmt.Sprintf(`tell application id "%s"
-  set t to first to do whose name is "%s"
-  set tid to id of t
+%s  set tid to id of t
 end tell
 open location "things:///update?auth-token=%s&id=" & tid & "&append-checklist-items=%s"
-return tid`, bundleID, escapeApple(taskName), escapeApple(thingsQueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
+return tid`, bundleID, scriptResolveTaskRef(taskName, taskID), escapeApple(thingsQueryEscape(authToken)), escapeApple(urlEncodeChecklist(items)))
 }
 
 func parseCSVList(value string) []string {
@@ -125,12 +128,12 @@ end tell`
 	return script
 }
 
-func scriptEditTask(bundleID, source, newName, notes, tags, moveTo, due, completion, creation, cancel string) (string, error) {
-	if source == "" {
-		return "", errors.New("source name is required")
+func scriptEditTask(bundleID, sourceName, sourceID, newName, notes, tags, moveTo, due, completion, creation, cancel string) (string, error) {
+	if strings.TrimSpace(sourceName) == "" && strings.TrimSpace(sourceID) == "" {
+		return "", errors.New("source selector is required")
 	}
 	script := fmt.Sprintf(`tell application id "%s"
-%s`, bundleID, scriptResolveTaskByName(source))
+%s`, bundleID, scriptResolveTaskRef(sourceName, sourceID))
 	if strings.TrimSpace(newName) != "" {
 		script += fmt.Sprintf(`  set name of t to "%s"
 `, escapeApple(newName))
@@ -185,14 +188,30 @@ end tell`
 	return script
 }
 
-func scriptSetTaskNotes(bundleID, taskName, notes string) string {
+func scriptEditProjectRef(bundleID, sourceName, sourceID, newName, notes string) string {
+	script := fmt.Sprintf(`tell application id "%s"
+%s`, bundleID, scriptResolveProjectRef(sourceName, sourceID))
+	if strings.TrimSpace(newName) != "" {
+		script += fmt.Sprintf(`  set name of p to "%s"
+`, escapeApple(newName))
+	}
+	if strings.TrimSpace(notes) != "" {
+		script += fmt.Sprintf(`  set notes of p to "%s"
+`, escapeApple(notes))
+	}
+	script += `  return id of p
+end tell`
+	return script
+}
+
+func scriptSetTaskNotes(bundleID, taskName, taskID, notes string) string {
 	return fmt.Sprintf(`tell application id "%s"
 %s  set notes of t to "%s"
   return id of t
-end tell`, bundleID, scriptResolveTaskByName(taskName), escapeApple(notes))
+end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), escapeApple(notes))
 }
 
-func scriptAppendTaskNotes(bundleID, taskName, notes, separator string) string {
+func scriptAppendTaskNotes(bundleID, taskName, taskID, notes, separator string) string {
 	if strings.TrimSpace(separator) == "" {
 		separator = "\n"
 	}
@@ -203,12 +222,12 @@ func scriptAppendTaskNotes(bundleID, taskName, notes, separator string) string {
     set notes of t to (notes of t & "%s" & "%s")
   end if
   return id of t
-end tell`, bundleID, scriptResolveTaskByName(taskName), escapeApple(notes), escapeApple(separator), escapeApple(notes))
+end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), escapeApple(notes), escapeApple(separator), escapeApple(notes))
 }
 
-func scriptSetTaskDate(bundleID, taskName, dueDate string, clear bool) string {
+func scriptSetTaskDate(bundleID, taskName, taskID, dueDate string, clear bool) string {
 	script := fmt.Sprintf(`tell application id "%s"
-%s`, bundleID, scriptResolveTaskByName(taskName))
+%s`, bundleID, scriptResolveTaskRef(taskName, taskID))
 	if clear {
 		script += `  set due date of t to missing value
 `
@@ -222,14 +241,22 @@ func scriptSetTaskDate(bundleID, taskName, dueDate string, clear bool) string {
 	return script
 }
 
-func scriptSetTaskDeadlineByName(bundleID, taskName, deadlineDate, authToken string) string {
+func scriptSetTaskDeadlineByRef(bundleID, taskName, taskID, deadlineDate, authToken string) string {
 	return fmt.Sprintf(`tell application id "%s"
 %s  set tid to id of t
 end tell
 open location "things:///update?auth-token=%s&id=" & tid & "&deadline=%s"
-return tid`, bundleID, scriptResolveTaskByName(taskName), escapeApple(thingsQueryEscape(authToken)), escapeApple(thingsQueryEscape(deadlineDate)))
+return tid`, bundleID, scriptResolveTaskRef(taskName, taskID), escapeApple(thingsQueryEscape(authToken)), escapeApple(thingsQueryEscape(deadlineDate)))
+}
+
+func scriptSetTaskDeadlineByName(bundleID, taskName, deadlineDate, authToken string) string {
+	return scriptSetTaskDeadlineByRef(bundleID, taskName, "", deadlineDate, authToken)
 }
 
 func scriptClearTaskDeadlineByName(bundleID, taskName, authToken string) string {
-	return scriptSetTaskDeadlineByName(bundleID, taskName, "", authToken)
+	return scriptSetTaskDeadlineByRef(bundleID, taskName, "", "", authToken)
+}
+
+func scriptClearTaskDeadlineByRef(bundleID, taskName, taskID, authToken string) string {
+	return scriptSetTaskDeadlineByRef(bundleID, taskName, taskID, "", authToken)
 }

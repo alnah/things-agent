@@ -62,7 +62,7 @@ func TestScriptSetChecklistByIDUsesEscapedTokenAndItems(t *testing.T) {
 }
 
 func TestScriptEditTaskRequiresSource(t *testing.T) {
-	if _, err := scriptEditTask(defaultBundleID, "", "", "", "", "", "", "", "", ""); err == nil {
+	if _, err := scriptEditTask(defaultBundleID, "", "", "", "", "", "", "", "", "", ""); err == nil {
 		t.Fatal("expected error when source is empty")
 	}
 }
@@ -79,14 +79,14 @@ func TestRequireAuthToken(t *testing.T) {
 }
 
 func TestScriptAppendTaskNotesDefaultSeparator(t *testing.T) {
-	s := scriptAppendTaskNotes(defaultBundleID, "task", "note", "")
+	s := scriptAppendTaskNotes(defaultBundleID, "task", "", "note", "")
 	if !strings.Contains(s, `& "\n" & "note"`) {
 		t.Fatalf("expected default newline separator in script: %s", s)
 	}
 }
 
 func TestScriptSetTaskDateClearsAndSetsDueOnly(t *testing.T) {
-	s := scriptSetTaskDate(defaultBundleID, "task", "2026-03-06 00:00:00", true)
+	s := scriptSetTaskDate(defaultBundleID, "task", "", "2026-03-06 00:00:00", true)
 	if !strings.Contains(s, "set due date of t to missing value") {
 		t.Fatalf("expected clear due date step: %s", s)
 	}
@@ -109,6 +109,7 @@ func TestScriptEditTaskWithAllOptionalFields(t *testing.T) {
 	s, err := scriptEditTask(
 		defaultBundleID,
 		"source",
+		"",
 		"new-name",
 		"new-notes",
 		"a,b",

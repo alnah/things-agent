@@ -39,11 +39,11 @@ func TestScriptDeleteUnknownKind(t *testing.T) {
 }
 
 func TestScriptCompleteTaskStates(t *testing.T) {
-	done := scriptCompleteTask("bundle.id", "task", true)
+	done := scriptCompleteTask("bundle.id", "task", "", true)
 	if !strings.Contains(done, "set status of t to completed") {
 		t.Fatalf("unexpected completed script: %s", done)
 	}
-	open := scriptCompleteTask("bundle.id", "task", false)
+	open := scriptCompleteTask("bundle.id", "task", "", false)
 	if !strings.Contains(open, "set status of t to open") {
 		t.Fatalf("unexpected open script: %s", open)
 	}

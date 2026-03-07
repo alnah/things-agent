@@ -262,6 +262,36 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		})
 	})
 
+	t.Run("write commands support id selectors", func(t *testing.T) {
+		fr := &fakeRunner{output: "task-1"}
+		setupTestRuntimeWithDB(t, fr)
+
+		err := executeAcceptanceRoot(t, "complete-task", "--id", "task-1")
+		if err != nil {
+			t.Fatalf("expected complete-task --id to succeed: %v", err)
+		}
+
+		scripts := fr.allScripts()
+		if len(scripts) == 0 || !strings.Contains(scripts[0], `first «class tstk» whose id is "task-1"`) {
+			t.Fatalf("expected id-based task resolution, got %#v", scripts)
+		}
+	})
+
+	t.Run("subtask commands support task-id selector", func(t *testing.T) {
+		fr := &fakeRunner{output: "task-1"}
+		setupTestRuntimeWithDB(t, fr)
+
+		err := executeAcceptanceRoot(t, "add-subtask", "--task-id", "task-1", "--name", "Checklist item")
+		if err != nil {
+			t.Fatalf("expected add-subtask --task-id to succeed: %v", err)
+		}
+
+		scripts := fr.allScripts()
+		if len(scripts) == 0 || !strings.Contains(scripts[len(scripts)-1], `first «class tstk» whose id is "task-1"`) {
+			t.Fatalf("expected task-id based checklist mutation, got %#v", scripts)
+		}
+	})
+
 	t.Run("restore is timestamp-only on the CLI surface", func(t *testing.T) {
 		fr := &fakeRunner{}
 		tmp := setupTestRuntimeWithDB(t, fr)

@@ -5,15 +5,15 @@ import (
 	"strings"
 )
 
-func scriptSetTaskTags(bundleID, taskName string, tags []string) string {
+func scriptSetTaskTags(bundleID, taskName, taskID string, tags []string) string {
 	tagText := strings.Join(tags, ", ")
 	return fmt.Sprintf(`tell application id "%s"
 %s  set tag names of t to "%s"
   return id of t
-end tell`, bundleID, scriptResolveTaskByName(taskName), escapeApple(tagText))
+end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), escapeApple(tagText))
 }
 
-func scriptAddTaskTags(bundleID, taskName string, tags []string) string {
+func scriptAddTaskTags(bundleID, taskName, taskID string, tags []string) string {
 	return fmt.Sprintf(`tell application id "%s"
 %s  set existingTags to {}
   try
@@ -34,10 +34,10 @@ func scriptAddTaskTags(bundleID, taskName string, tags []string) string {
   set AppleScript's text item delimiters to ""
   set tag names of t to mergedTagsText
   return id of t
-end tell`, bundleID, scriptResolveTaskByName(taskName), scriptListLiteral(tags))
+end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), scriptListLiteral(tags))
 }
 
-func scriptRemoveTaskTags(bundleID, taskName string, tags []string) string {
+func scriptRemoveTaskTags(bundleID, taskName, taskID string, tags []string) string {
 	return fmt.Sprintf(`tell application id "%s"
 %s  set existingTags to {}
   try
@@ -59,5 +59,5 @@ func scriptRemoveTaskTags(bundleID, taskName string, tags []string) string {
   set AppleScript's text item delimiters to ""
   set tag names of t to filteredTagsText
   return id of t
-end tell`, bundleID, scriptResolveTaskByName(taskName), scriptListLiteral(tags))
+end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), scriptListLiteral(tags))
 }
