@@ -60,6 +60,16 @@ func TestScriptAllProjectsStructured(t *testing.T) {
 	}
 }
 
+func TestScriptRestoreSemanticCheck(t *testing.T) {
+	got := scriptRestoreSemanticCheck("bundle.id")
+	if !strings.Contains(got, "restore semantic verify") {
+		t.Fatalf("expected restore semantic marker, got: %s", got)
+	}
+	if !strings.Contains(got, `count of lists`) || !strings.Contains(got, `count of projects`) {
+		t.Fatalf("expected semantic counts in script, got: %s", got)
+	}
+}
+
 func TestScriptResolveTaskByNameEscapesInput(t *testing.T) {
 	got := scriptResolveItemRef(`foo "bar"`, "")
 	if !strings.Contains(got, `\"bar\"`) {

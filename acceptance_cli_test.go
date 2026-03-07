@@ -426,4 +426,34 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 			t.Fatalf("expected dry-run to keep live database untouched: before=%q after=%q", before, after)
 		}
 	})
+
+	t.Run("restore json includes semantic verification details", func(t *testing.T) {
+		fr := &fakeRunner{}
+		tmp := setupTestRuntimeWithDB(t, fr)
+
+		if err := executeAcceptanceRoot(t, "backup"); err != nil {
+			t.Fatalf("expected backup to succeed: %v", err)
+		}
+		entries, err := os.ReadDir(tmp + "/" + backupDirName)
+		if err != nil || len(entries) == 0 {
+			t.Fatalf("expected at least one backup entry, err=%v count=%d", err, len(entries))
+		}
+		ts := inferTimestamp(entries[0].Name())
+
+		stdout, err := captureStdout(t, func() error {
+			return executeAcceptanceRoot(t, "restore", "--timestamp", ts, "--json")
+		})
+		if err != nil {
+			t.Fatalf("expected restore --json to succeed: %v", err)
+		}
+
+		var payload map[string]any
+		if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+			t.Fatalf("decode restore json: %v\nstdout=%q", err, stdout)
+		}
+		semantic, ok := payload["semantic_verification"].(map[string]any)
+		if !ok || semantic["ok"] != true {
+			t.Fatalf("expected semantic verification in restore journal, got %#v", payload["semantic_verification"])
+		}
+	})
 }

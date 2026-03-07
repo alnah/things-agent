@@ -182,3 +182,10 @@ func scriptTasksStructured(bundleID, listName, query string) string {
   return outLines as text
 end tell`, bundleID, filterPrefix, filterBody)
 }
+
+func scriptRestoreSemanticCheck(bundleID string) string {
+	return fmt.Sprintf(`tell application id "%s"
+  -- restore semantic verify
+  return ((count of lists) as string) & tab & ((count of projects) as string)
+end tell`, bundleID)
+}

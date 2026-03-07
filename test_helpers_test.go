@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -13,12 +14,19 @@ type fakeRunner struct {
 	output  string
 	err     error
 	scripts []string
+	runFn   func(string) (string, error)
 }
 
 func (f *fakeRunner) run(_ context.Context, script string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.scripts = append(f.scripts, script)
+	if f.runFn != nil {
+		return f.runFn(script)
+	}
+	if strings.Contains(script, "restore semantic verify") {
+		return "1\t0", nil
+	}
 	return f.output, f.err
 }
 
