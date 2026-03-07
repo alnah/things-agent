@@ -21,11 +21,22 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: dependency boundary guard
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
       - name: unit tests with coverage
         run: go test ./... -coverprofile=coverage.out -covermode=atomic
 
       - name: integration tests (mocked runner)
-        run: go test -tags=integration ./...
+        run: go test -tags=integration ./... -run Integration -count=1
+
+      - name: end-to-end tests (built binary + fake osascript)
+        run: go test -tags=e2e ./... -run E2E -count=1
+
+      - name: race tests
+        run: go test -race ./... -count=1
 
       - name: upload coverage to codecov
         uses: codecov/codecov-action@v5
