@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseDateSupportsExpectedFormats(t *testing.T) {
@@ -85,6 +86,34 @@ func TestBackupManagerCreateAndLatest(t *testing.T) {
 	}
 	if ts == "" {
 		t.Fatal("expected non-empty latest timestamp")
+	}
+}
+
+func TestBackupManagerCreateAvoidsTimestampCollisions(t *testing.T) {
+	tmp := t.TempDir()
+	for _, base := range []string{"main.sqlite", "main.sqlite-shm", "main.sqlite-wal"} {
+		if err := os.WriteFile(filepath.Join(tmp, base), []byte("x"), 0o644); err != nil {
+			t.Fatalf("write %s failed: %v", base, err)
+		}
+	}
+
+	bm := newBackupManager(tmp)
+	fixedNow := time.Date(2026, 3, 6, 21, 10, 0, 0, time.Local)
+	bm.nowFn = func() time.Time { return fixedNow }
+
+	first, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("first create failed: %v", err)
+	}
+	second, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("second create failed: %v", err)
+	}
+
+	firstTS := inferTimestamp(first[0])
+	secondTS := inferTimestamp(second[0])
+	if firstTS == secondTS {
+		t.Fatalf("expected unique timestamps, got %q and %q", firstTS, secondTS)
 	}
 }
 

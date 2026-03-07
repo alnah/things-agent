@@ -107,17 +107,7 @@ func newRestoreCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			bm := newBackupManager(cfg.dataDir)
-			timestamp = strings.TrimSpace(timestamp)
-			if timestamp == "" {
-				ts, err := bm.Latest(ctx)
-				if err != nil {
-					return err
-				}
-				timestamp = ts
-			}
-
-			restored, err := bm.Restore(ctx, timestamp)
+			restored, err := newRestoreExecutor(cfg).Restore(ctx, timestamp)
 			if err != nil {
 				return err
 			}

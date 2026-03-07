@@ -14,10 +14,16 @@ import (
 
 type backupManager struct {
 	dataDir string
+	copyFn  func(src, dst string) error
+	nowFn   func() time.Time
 }
 
 func newBackupManager(dataDir string) *backupManager {
-	return &backupManager{dataDir: dataDir}
+	return &backupManager{
+		dataDir: dataDir,
+		copyFn:  copyFile,
+		nowFn:   time.Now,
+	}
 }
 
 func (bm *backupManager) Create(ctx context.Context) ([]string, error) {
@@ -26,7 +32,10 @@ func (bm *backupManager) Create(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	ts := time.Now().Format(backupTSFormat)
+	ts, err := bm.nextTimestamp()
+	if err != nil {
+		return nil, err
+	}
 	var created []string
 	for _, base := range []string{"main.sqlite", "main.sqlite-shm", "main.sqlite-wal"} {
 		src := filepath.Join(bm.dataDir, base)
@@ -34,7 +43,7 @@ func (bm *backupManager) Create(ctx context.Context) ([]string, error) {
 			continue
 		}
 		dst := filepath.Join(dir, base+"."+ts+".bak")
-		if err := copyFile(src, dst); err != nil {
+		if err := bm.copyFn(src, dst); err != nil {
 			return nil, err
 		}
 		created = append(created, dst)
@@ -109,7 +118,7 @@ func (bm *backupManager) RestoreFile(ctx context.Context, path string) error {
 		return fmt.Errorf("nom de backup invalide: %s", base)
 	}
 	dst := filepath.Join(bm.dataDir, baseTarget)
-	return copyFile(path, dst)
+	return bm.copyFn(path, dst)
 }
 
 func (bm *backupManager) prune(ctx context.Context, keep int) error {
@@ -172,6 +181,44 @@ func (bm *backupManager) ensureBackupDir() (string, error) {
 		return "", err
 	}
 	return path, nil
+}
+
+func (bm *backupManager) nextTimestamp() (string, error) {
+	current := bm.nowFn()
+	timestamps, err := bm.allTimestamps()
+	if err != nil {
+		return "", err
+	}
+	if len(timestamps) > 0 {
+		latest, err := time.ParseInLocation(backupTSFormat, timestamps[0], time.Local)
+		if err == nil && !current.After(latest) {
+			current = latest.Add(time.Second)
+		}
+	}
+	for i := 0; i < 60; i++ {
+		ts := current.Format(backupTSFormat)
+		exists, err := bm.timestampExists(ts)
+		if err != nil {
+			return "", err
+		}
+		if !exists {
+			return ts, nil
+		}
+		current = current.Add(time.Second)
+	}
+	return "", errors.New("could not allocate unique backup timestamp")
+}
+
+func (bm *backupManager) timestampExists(ts string) (bool, error) {
+	for _, base := range []string{"main.sqlite", "main.sqlite-shm", "main.sqlite-wal"} {
+		target := filepath.Join(bm.backupPath(), base+"."+ts+".bak")
+		if _, err := os.Stat(target); err == nil {
+			return true, nil
+		} else if !os.IsNotExist(err) {
+			return false, err
+		}
+	}
+	return false, nil
 }
 
 func parseToAppleDate(value string) (string, error) {
