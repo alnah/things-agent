@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -17,14 +18,6 @@ func newURLAddProjectCmd() *cobra.Command {
 		Use:   "add-project",
 		Short: "things:///add-project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
 			params := map[string]string{}
 			setIfNotEmpty(params, "title", title)
 			setIfNotEmpty(params, "notes", notes)
@@ -40,7 +33,9 @@ func newURLAddProjectCmd() *cobra.Command {
 			setBoolIfChanged(cmd, params, "canceled", canceled)
 			setBoolIfChanged(cmd, params, "reveal", reveal)
 			callbacks.apply(params)
-			return runThingsURL(ctx, cfg, "add-project", params)
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runThingsURL(ctx, cfg, "add-project", params)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&title, "title", "", "Project title")
@@ -70,24 +65,11 @@ func newURLUpdateProjectCmd() *cobra.Command {
 		Use:   "update-project",
 		Short: "things:///update-project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(id) == "" {
 				return errors.New("--id is required")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			token, err := requireAuthToken(cfg)
-			if err != nil {
-				return err
-			}
 			params := map[string]string{
-				"auth-token": token,
-				"id":         id,
+				"id": id,
 			}
 			setIfChanged(cmd, params, "title", title)
 			setIfChanged(cmd, params, "notes", notes)
@@ -106,7 +88,14 @@ func newURLUpdateProjectCmd() *cobra.Command {
 			setBoolIfChanged(cmd, params, "reveal", reveal)
 			setBoolIfChanged(cmd, params, "duplicate", duplicate)
 			callbacks.apply(params)
-			return runThingsURL(ctx, cfg, "update-project", params)
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				params["auth-token"] = token
+				return runThingsURL(ctx, cfg, "update-project", params)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&id, "id", "", "Project ID")

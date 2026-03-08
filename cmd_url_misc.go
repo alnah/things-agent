@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -53,11 +54,6 @@ func newURLShowCmd() *cobra.Command {
 		Use:   "show",
 		Short: "things:///show",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			params := map[string]string{}
 			setIfNotEmpty(params, "id", id)
 			setIfNotEmpty(params, "query", query)
@@ -66,7 +62,9 @@ func newURLShowCmd() *cobra.Command {
 			if len(params) == 0 {
 				return errors.New("fournir au moins --id ou --query")
 			}
-			return runThingsURL(ctx, cfg, "show", params)
+			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runThingsURL(ctx, cfg, "show", params)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&id, "id", "", "ID to reveal (or built-in list)")
@@ -83,15 +81,12 @@ func newURLSearchCmd() *cobra.Command {
 		Use:   "search",
 		Short: "things:///search",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			params := map[string]string{}
 			setIfNotEmpty(params, "query", query)
 			callbacks.apply(params)
-			return runThingsURL(ctx, cfg, "search", params)
+			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runThingsURL(ctx, cfg, "search", params)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "Search text")
@@ -105,14 +100,11 @@ func newURLVersionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "things:///version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			params := map[string]string{}
 			callbacks.apply(params)
-			return runThingsURL(ctx, cfg, "version", params)
+			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runThingsURL(ctx, cfg, "version", params)
+			})
 		},
 	}
 	addURLCallbackFlags(cmd, &callbacks)
@@ -127,16 +119,8 @@ func newURLJSONCommand(use, short, commandName string) *cobra.Command {
 		Use:   use,
 		Short: short,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(data) == "" {
 				return errors.New("--data is required")
-			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
 			}
 			params := map[string]string{"data": data}
 			callbacks.apply(params)
@@ -144,15 +128,17 @@ func newURLJSONCommand(use, short, commandName string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if requiresToken {
-				token, err := requireAuthToken(cfg)
-				if err != nil {
-					return err
-				}
-				params["auth-token"] = token
-			}
 			setBoolIfChanged(cmd, params, "reveal", reveal)
-			return runThingsURL(ctx, cfg, commandName, params)
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				if requiresToken {
+					token, err := requireAuthToken(cfg)
+					if err != nil {
+						return err
+					}
+					params["auth-token"] = token
+				}
+				return runThingsURL(ctx, cfg, commandName, params)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&data, "data", "", "Payload JSON")

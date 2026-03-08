@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -17,14 +18,6 @@ func newURLAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "things:///add",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
 			params := map[string]string{}
 			setIfNotEmpty(params, "title", title)
 			setIfNotEmpty(params, "notes", notes)
@@ -41,7 +34,9 @@ func newURLAddCmd() *cobra.Command {
 			setBoolIfChanged(cmd, params, "canceled", canceled)
 			setBoolIfChanged(cmd, params, "reveal", reveal)
 			callbacks.apply(params)
-			return runThingsURL(ctx, cfg, "add", params)
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runThingsURL(ctx, cfg, "add", params)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&title, "title", "", "Title")
@@ -74,24 +69,11 @@ func newURLUpdateCmd() *cobra.Command {
 		Use:   "update",
 		Short: "things:///update",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(id) == "" {
 				return errors.New("--id is required")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			token, err := requireAuthToken(cfg)
-			if err != nil {
-				return err
-			}
 			params := map[string]string{
-				"auth-token": token,
-				"id":         id,
+				"id": id,
 			}
 			setIfNotEmpty(params, "title", title)
 			setIfChanged(cmd, params, "notes", notes)
@@ -115,7 +97,14 @@ func newURLUpdateCmd() *cobra.Command {
 			setIfChanged(cmd, params, "creation-date", creationDate)
 			setIfChanged(cmd, params, "completion-date", completionDate)
 			callbacks.apply(params)
-			return runThingsURL(ctx, cfg, "update", params)
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				params["auth-token"] = token
+				return runThingsURL(ctx, cfg, "update", params)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&id, "id", "", "ID of the to-do to update")
