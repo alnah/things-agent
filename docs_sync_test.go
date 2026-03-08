@@ -17,6 +17,8 @@ func TestDocsSyncGate(t *testing.T) {
 		"things-agent restore list",
 		"things-agent restore verify",
 		"things-agent date",
+		"things-agent open",
+		"things-agent close",
 		"things-agent areas",
 		"add-task --area",
 		"add-task --project",

@@ -77,8 +77,9 @@ Use this project at your own risk.
 
 - Emptying Things trash is intentionally not exposed by the CLI.
 - This is a deliberate safety decision to avoid irreversible bulk deletion by script.
-- Deletion remains available item by item (`delete-task`, `delete-project`, `delete-area`) with backup beforehand.
-- `session-start` backup is required in agent instructions before state-changing operations.
+- Deletion remains available item by item (`delete-task`, `delete-project`, `delete-area`).
+- `session-start` backup is required in agent instructions at the beginning of each session.
+- Outside `session-start`, the agent should not create a backup before every small mutation; backup is meant for heavier or harder-to-reverse operations.
 - Backups are rotated and capped at 50 snapshots.
 - On the author's machine at the time of writing, the full `Backups/` folder uses roughly `316 MB` total; this includes package snapshots plus backup metadata, and will vary with database size.
 - `AGENTS.md` explicitly forbids direct SQLite access.
@@ -130,6 +131,7 @@ ln -sf AGENTS.md CLAUDE.md
 things-agent version
 things-agent session-start
 things-agent date
+things-agent open
 ```
 
 After `things-agent session-start`, the agent should immediately build a fresh read-only picture of Things before planning any work:
@@ -158,6 +160,7 @@ The canonical session date command is `things-agent date`, which prints the week
 ```bash
 things-agent session-start
 things-agent date
+things-agent open
 things-agent backup
 things-agent backup --settle 10s
 things-agent areas
@@ -252,7 +255,7 @@ This keeps audit workflows safe while respecting the no-direct-database rule for
 
 | Command group | Commands | Notes |
 | --- | --- | --- |
-| Session and backup | `session-start`, `backup [--settle <duration>]`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--network-isolation sandbox-no-network] [--offline-hold <duration>] [--reopen-online] [--dry-run] [--json]`, `restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `backup` writes a package snapshot into the official `ThingsData-*/Backups` folder; every snapshot also gets a small agent-readable index with `kind`, `created_at`, `source_command`, and `reason`; `--settle` lets the agent wait longer before quiescing Things so very recent writes are captured; `restore` creates a pre-restore safety backup, swaps the package snapshot, verifies the copied database file, clears local sync metadata before relaunch, can relaunch Things offline, and emits a structured journal for the agent |
+| Session and backup | `session-start`, `backup [--settle <duration>]`, `restore [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--network-isolation sandbox-no-network] [--offline-hold <duration>] [--reopen-online] [--dry-run] [--json]`, `restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]`, `restore list [--json]`, `restore verify --timestamp <YYYY-MM-DD:HH-MM-SS> [--json]` | `session-start` is the mandatory session checkpoint; outside that, `backup` is intended for heavier or harder-to-reverse operations rather than every small mutation; backups write a package snapshot into the official `ThingsData-*/Backups` folder, add a small agent-readable index with `kind`, `created_at`, `source_command`, and `reason`, wait with `--settle` before quiescing when needed, and reopen Things afterward if it was already open; `restore` creates a pre-restore safety backup, swaps the package snapshot, verifies the copied database file, clears local sync metadata before relaunch, can relaunch Things offline, and emits a structured journal for the agent |
 | Core listing/search | `areas`, `lists`, `projects [--json]`, `tasks [--list <name>] [--query <text>] [--json]`, `search --query <text> [--list <name>] [--json]`, `show-task (--name|--id) [--with-child-tasks] [--json]` | `areas` lists area entities; `lists` lists areas plus built-in Things lists; `--list` is a generic Things list filter that may target a built-in list or an area; `--json` is intended for agent consumption |
 | Tag entities | `tags list`, `tags search`, `tags add`, `tags edit`, `tags delete` | Manage Things tags directly |
 | Task lifecycle | `add-task --area <name>` or `add-task --project <name>`, `edit-task (--name|--id)`, `delete-task (--name|--id)`, `complete-task (--name|--id)`, `uncomplete-task (--name|--id)` | Standard to-do operations with explicit destination on create; `--checklist-items` creates native checklist |
@@ -264,7 +267,7 @@ This keeps audit workflows safe while respecting the no-direct-database rule for
 | Tasks | `move-task (--name|--id)` | Move to an area or project; heading destinations are not reliable yet |
 | Child tasks | `list-child-tasks (--parent|--parent-id)`, `add-child-task (--parent|--parent-id)`, `edit-child-task (--id or --parent/--parent-id + --name/--index)`, `delete-child-task (--id or --parent/--parent-id + --name/--index)`, `complete-child-task (--id or --parent/--parent-id + --name/--index)`, `uncomplete-child-task (--id or --parent/--parent-id + --name/--index)`, `reorder-project-items (--project|--project-id)` | Explicit AppleScript child-task surface for projects; direct `--id` is supported for mutations; reorder uses a private Things backend |
 | URL Scheme bridge | `url add|update|add-project|update-project|show|search|version|json` | Direct mapping of Things URL Scheme |
-| CLI info | `version`, `date` | Print CLI version or the canonical session date line |
+| CLI info | `version`, `date`, `open`, `close` | Print CLI version, print the canonical session date line, or open/close Things explicitly |
 | Checklist shortcut | `add-task --checklist-items "a, b"` | Creates native checklist, requires `--auth-token` or `THINGS_AUTH_TOKEN` |
 
 Reordering notes:
@@ -314,11 +317,15 @@ It records:
 
 Operationally:
 
+- `session-start` remains the mandatory backup step at the beginning of a session;
 - prefer `explicit` backups when the user asks to restore a known checkpoint;
 - use `session` backups to return to the start of an agent session;
 - use `safety` backups for immediate rollback or debugging after a failed critical action.
+- do not create an extra backup before every small mutation;
+- recommend or trigger an explicit backup for heavy, destructive, or highly transformative operations.
 
 Retention is currently shared across all backup kinds: the CLI keeps the 50 most recent snapshots overall.
+If Things was already open when a backup starts, the CLI should reopen it after the backup completes.
 
 ### URL Scheme API Mapping
 

@@ -17,6 +17,7 @@ This file defines operating rules for the **things-agent** repository (Things 3 
 - If the Things UI is localized differently, the agent must first inspect `things-agent lists` and then use the exact localized names returned by the CLI for `Today` and `À classer`.
 - The CLI keeps at most **50 backups** at all times (oldest are removed after creating a new backup).
 - Required backup timestamp format: `YYYY-MM-DD:HH-MM-SS`.
+- `session-start` is the only backup action that remains mandatory by default at the beginning of a session.
 
 ## Data Access Rule
 
@@ -44,7 +45,8 @@ This file defines operating rules for the **things-agent** repository (Things 3 
   - `things-agent version` if available
   - `things-agent --help`
 - On failure, clearly report the executed command and returned error.
-- Avoid non-idempotent destructive operations without backup.
+- Do not create an extra backup before every mutation.
+- Recommend or trigger an explicit backup only before heavy, destructive, or highly transformative operations such as multi-delete, broad reorder, large move/rename batches, or structural reorganization.
 
 ## Domain glossary
 
@@ -68,8 +70,11 @@ The agent should treat this table as the current command surface of the CLI.
 | --- | --- | --- | --- |
 | `things-agent --help` / `things-agent help` | Show command help | no | Use first when uncertain |
 | `things-agent version` | Print CLI version | no | Health check |
+| `things-agent date` | Print current weekday, date, time, and timezone | no | Session context check |
+| `things-agent open` | Open Things | yes | App lifecycle convenience command |
+| `things-agent close` | Close Things | yes | App lifecycle convenience command |
 | `things-agent session-start` | Create session backup + retention cleanup | yes | First command in a new session; creates a `session` backup kind |
-| `things-agent backup [--settle <duration>]` | Create backup manually | yes | DB checkpoint; creates an `explicit` backup kind; `--settle` waits before quiescing Things |
+| `things-agent backup [--settle <duration>]` | Create backup manually | yes | DB checkpoint; creates an `explicit` backup kind; `--settle` waits before quiescing Things; reopens Things afterward if it was already open |
 | `things-agent restore [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--network-isolation sandbox-no-network] [--offline-hold <duration>] [--reopen-online] [--dry-run] [--json]` | Restore a backup | yes | Critical operation; creates a pre-restore backup, swaps the package snapshot from `ThingsData-*/Backups`, verifies the copied database file, clears local sync metadata before relaunch, and can relaunch Things offline with macOS `sandbox-exec -n no-network` |
 | `things-agent restore preflight [--timestamp <YYYY-MM-DD:HH-MM-SS>] [--json]` | Validate restore readiness without mutating live files | no | Read operation for restore safety |
 | `things-agent restore list [--json]` | List available snapshots | no | Read operation for restore inventory; JSON includes backup index metadata such as `kind`, `created_at`, `source_command`, and `reason` |
@@ -182,7 +187,9 @@ The agent should treat this table as the current command surface of the CLI.
 
 ## Backup via CLI
 
-- Backup command in CLI is mandatory before critical state changes.
+- `session-start` remains mandatory at the beginning of a session.
+- Outside `session-start`, backup is not mandatory before every mutation.
+- The agent should recommend or trigger an explicit backup only before heavy, destructive, or highly transformative operations.
 - Backup must be written in `Backups/` under the `ThingsData-*` directory.
 - Backup files must follow timestamp format `YYYY-MM-DD:HH-MM-SS`.
 - Keep at most **50** most recent backups.
@@ -194,13 +201,14 @@ The agent should treat this table as the current command surface of the CLI.
 - The backup index is metadata only. It helps the agent choose the right snapshot, but it is not a separate restore mechanism.
 - Retention is currently shared across all backup kinds: the CLI keeps the 50 most recent snapshots overall.
 - When Things is running, backup waits a short settle window before quiescing so very recent writes are more likely to be persisted into the checkpoint.
+- If Things was open before a backup, the CLI should reopen it after the backup completes.
 - Use `backup --settle 10s` or more if the checkpoint must include very recent task/project edits that were just created via the CLI.
 
 ## Execution Convention
 
 - Prefer atomic and explicit commands.
 - When multiple operations depend on shared state, execute in this order:
-  1. backup
+  1. optional backup if the operation is heavy/destructive/transformative
   2. read/write action(s)
   3. verification
 - After each requested action, the agent must always verify that the action was performed correctly and report the result.
