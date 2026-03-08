@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -96,11 +97,6 @@ func newAddTaskCmd() *cobra.Command {
 		Use:   "add-task",
 		Short: "Add a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(name) == "" {
 				return errors.New("--name is required")
 			}
@@ -108,42 +104,41 @@ func newAddTaskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			dueDate, err := parseToAppleDate(due)
-			if err != nil {
-				return err
-			}
-			checklistItemsList := parseCSVList(checklistItems)
-			var createScript string
-			switch destinationKind {
-			case "area":
-				createScript = scriptAddTaskToArea(cfg.bundleID, destinationName, name, notes, tags, dueDate)
-			case "project":
-				createScript = scriptAddTaskToProject(cfg.bundleID, destinationName, name, notes, tags, dueDate)
-			default:
-				return errors.New("unsupported destination kind")
-			}
-			out, err := cfg.runner.run(ctx, createScript)
-			if err != nil {
-				return err
-			}
-			taskID := strings.TrimSpace(out)
-			if taskID == "" {
-				return errors.New("could not retrieve created task id")
-			}
-			if len(checklistItemsList) > 0 {
-				token, err := requireAuthToken(cfg)
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				dueDate, err := parseToAppleDate(due)
 				if err != nil {
 					return err
 				}
-				if _, err := cfg.runner.run(ctx, scriptSetChecklistByID(cfg.bundleID, taskID, checklistItemsList, token)); err != nil {
+				checklistItemsList := parseCSVList(checklistItems)
+				var createScript string
+				switch destinationKind {
+				case "area":
+					createScript = scriptAddTaskToArea(cfg.bundleID, destinationName, name, notes, tags, dueDate)
+				case "project":
+					createScript = scriptAddTaskToProject(cfg.bundleID, destinationName, name, notes, tags, dueDate)
+				default:
+					return errors.New("unsupported destination kind")
+				}
+				out, err := cfg.runner.run(ctx, createScript)
+				if err != nil {
 					return err
 				}
-			}
-			fmt.Println(taskID)
-			return nil
+				taskID := strings.TrimSpace(out)
+				if taskID == "" {
+					return errors.New("could not retrieve created task id")
+				}
+				if len(checklistItemsList) > 0 {
+					token, err := requireAuthToken(cfg)
+					if err != nil {
+						return err
+					}
+					if _, err := cfg.runner.run(ctx, scriptSetChecklistByID(cfg.bundleID, taskID, checklistItemsList, token)); err != nil {
+						return err
+					}
+				}
+				fmt.Println(taskID)
+				return nil
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -163,53 +158,47 @@ func newEditTaskCmd() *cobra.Command {
 		Use:   "edit-task",
 		Short: "Edit a task (by name)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			sourceName, sourceID, err = resolveEntitySelector(sourceName, sourceID)
 			if err != nil {
 				return err
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				dueDate, err := parseToAppleDate(due)
+				if err != nil {
+					return err
+				}
+				completionDate, err := parseToAppleDate(completion)
+				if err != nil {
+					return err
+				}
+				creationDate, err := parseToAppleDate(creation)
+				if err != nil {
+					return err
+				}
+				cancelDate, err := parseToAppleDate(cancel)
+				if err != nil {
+					return err
+				}
 
-			dueDate, err := parseToAppleDate(due)
-			if err != nil {
-				return err
-			}
-			completionDate, err := parseToAppleDate(completion)
-			if err != nil {
-				return err
-			}
-			creationDate, err := parseToAppleDate(creation)
-			if err != nil {
-				return err
-			}
-			cancelDate, err := parseToAppleDate(cancel)
-			if err != nil {
-				return err
-			}
-
-			script, err := scriptEditTask(
-				cfg.bundleID,
-				sourceName,
-				sourceID,
-				newName,
-				notes,
-				tags,
-				moveTo,
-				dueDate,
-				completionDate,
-				creationDate,
-				cancelDate,
-			)
-			if err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, script)
+				script, err := scriptEditTask(
+					cfg.bundleID,
+					sourceName,
+					sourceID,
+					newName,
+					notes,
+					tags,
+					moveTo,
+					dueDate,
+					completionDate,
+					creationDate,
+					cancelDate,
+				)
+				if err != nil {
+					return err
+				}
+				return runResult(ctx, cfg, script)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&sourceName, "name", "", "Task name to edit")
@@ -231,19 +220,14 @@ func newDeleteTaskCmd() *cobra.Command {
 		Use:   "delete-task",
 		Short: "Delete a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
 			}
-			if err := backupIfDestructive(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptDeleteTaskRef(cfg.bundleID, name, id))
+			return withWriteBackup(cmd, true, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptDeleteTaskRef(cfg.bundleID, name, id))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -257,23 +241,18 @@ func newCompleteTaskCmd() *cobra.Command {
 		Use:   "complete-task",
 		Short: "Mark task as completed",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			token, err := requireAuthToken(cfg)
-			if err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptSetTaskCompletionByRef(cfg.bundleID, name, id, true, token))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				return runResult(ctx, cfg, scriptSetTaskCompletionByRef(cfg.bundleID, name, id, true, token))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -287,23 +266,18 @@ func newUncompleteTaskCmd() *cobra.Command {
 		Use:   "uncomplete-task",
 		Short: "Mark task as uncompleted",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			token, err := requireAuthToken(cfg)
-			if err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptSetTaskCompletionByRef(cfg.bundleID, name, id, false, token))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				return runResult(ctx, cfg, scriptSetTaskCompletionByRef(cfg.bundleID, name, id, false, token))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"strings"
 
@@ -28,12 +29,9 @@ func newTagsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List tags",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptListTags(cfg.bundleID, query))
+			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptListTags(cfg.bundleID, query))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "Optional filter by tag name")
@@ -46,15 +44,12 @@ func newTagsSearchCmd() *cobra.Command {
 		Use:   "search",
 		Short: "Search tags by name",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(query) == "" {
 				return errors.New("--query is required")
 			}
-			return runResult(ctx, cfg, scriptListTags(cfg.bundleID, query))
+			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptListTags(cfg.bundleID, query))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "Search text")
@@ -68,18 +63,12 @@ func newTagsAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Create a tag",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(name) == "" {
 				return errors.New("--name is required")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptAddTag(cfg.bundleID, name, parent))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptAddTag(cfg.bundleID, name, parent))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Tag name")
@@ -94,11 +83,6 @@ func newTagsEditCmd() *cobra.Command {
 		Use:   "edit",
 		Short: "Edit a tag",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			name = strings.TrimSpace(name)
 			newName = strings.TrimSpace(newName)
 			parent = strings.TrimSpace(parent)
@@ -109,10 +93,9 @@ func newTagsEditCmd() *cobra.Command {
 			if newName == "" && !parentChanged {
 				return errors.New("provide --new-name and/or --parent")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptEditTag(cfg.bundleID, name, newName, parent, parentChanged))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptEditTag(cfg.bundleID, name, newName, parent, parentChanged))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Existing tag name")
@@ -128,18 +111,12 @@ func newTagsDeleteCmd() *cobra.Command {
 		Use:   "delete",
 		Short: "Delete a tag",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(name) == "" {
 				return errors.New("--name is required")
 			}
-			if err := backupIfDestructive(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptDeleteTag(cfg.bundleID, name))
+			return withWriteBackup(cmd, true, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptDeleteTag(cfg.bundleID, name))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Tag name")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,11 +15,6 @@ func newAddProjectCmd() *cobra.Command {
 		Use:   "add-project",
 		Short: "Add a project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(name) == "" {
 				return errors.New("--name is required")
 			}
@@ -26,10 +22,9 @@ func newAddProjectCmd() *cobra.Command {
 			if areaName == "" {
 				return errors.New("destination is required: use --area")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptAddProject(cfg.bundleID, strings.TrimSpace(areaName), name, notes))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptAddProject(cfg.bundleID, strings.TrimSpace(areaName), name, notes))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Project name")
@@ -45,22 +40,16 @@ func newAddAreaCmd() *cobra.Command {
 		Use:   "add-area",
 		Short: "Add an area",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(name) == "" {
 				return errors.New("--name is required")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			script := fmt.Sprintf(`tell application id "%s"
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				script := fmt.Sprintf(`tell application id "%s"
   set a to make new area with properties {name:"%s"}
   return id of a
 end tell`, cfg.bundleID, escapeApple(name))
-			return runResult(ctx, cfg, script)
+				return runResult(ctx, cfg, script)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Area name")
@@ -74,11 +63,7 @@ func newEditProjectCmd() *cobra.Command {
 		Use:   "edit-project",
 		Short: "Edit a project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			sourceName, sourceID, err = resolveEntitySelector(sourceName, sourceID)
 			if err != nil {
 				return err
@@ -86,10 +71,9 @@ func newEditProjectCmd() *cobra.Command {
 			if strings.TrimSpace(newName) == "" && strings.TrimSpace(notes) == "" {
 				return errors.New("specify --new-name and/or --notes")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptEditProjectRef(cfg.bundleID, sourceName, sourceID, newName, notes))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptEditProjectRef(cfg.bundleID, sourceName, sourceID, newName, notes))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&sourceName, "name", "", "Project name")
@@ -105,26 +89,20 @@ func newEditAreaCmd() *cobra.Command {
 		Use:   "edit-area",
 		Short: "Rename an area",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(sourceName) == "" {
 				return errors.New("--name is required")
 			}
 			if strings.TrimSpace(newName) == "" {
 				return errors.New("--new-name is required")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			script := fmt.Sprintf(`tell application id "%s"
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				script := fmt.Sprintf(`tell application id "%s"
   set l to first list whose name is "%s"
   set name of l to "%s"
   return "ok"
 end tell`, cfg.bundleID, escapeApple(sourceName), escapeApple(newName))
-			return runResult(ctx, cfg, script)
+				return runResult(ctx, cfg, script)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&sourceName, "name", "", "Area name")
@@ -139,19 +117,14 @@ func newDeleteProjectCmd() *cobra.Command {
 		Use:   "delete-project",
 		Short: "Delete a project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
 			}
-			if err := backupIfDestructive(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptDeleteProjectRef(cfg.bundleID, name, id))
+			return withWriteBackup(cmd, true, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptDeleteProjectRef(cfg.bundleID, name, id))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Project name")
@@ -169,22 +142,16 @@ func newDeleteCmd(kind, name, short string) *cobra.Command {
 		Use:   name,
 		Short: short,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
 			if strings.TrimSpace(target) == "" {
 				return errors.New("--name is required")
 			}
-			if err := backupIfDestructive(ctx, cfg); err != nil {
-				return err
-			}
-			script, err := scriptDelete(cfg.bundleID, kind, target)
-			if err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, script)
+			return withWriteBackup(cmd, true, func(ctx context.Context, cfg *runtimeConfig) error {
+				script, err := scriptDelete(cfg.bundleID, kind, target)
+				if err != nil {
+					return err
+				}
+				return runResult(ctx, cfg, script)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&target, "name", "", "Item name")
