@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"regexp"
+	"runtime/debug"
 	"testing"
 	"time"
 )
@@ -12,6 +13,16 @@ func TestRootCommandBuildsAndRunsVersion(t *testing.T) {
 	if root == nil {
 		t.Fatal("expected root command")
 	}
+	origReadBuildInfo := readBuildInfo
+	t.Cleanup(func() {
+		readBuildInfo = origReadBuildInfo
+	})
+	readBuildInfo = func() (*debug.BuildInfo, bool) { return nil, false }
+	origCLIVersion := cliVersion
+	t.Cleanup(func() {
+		cliVersion = origCLIVersion
+	})
+	cliVersion = "dev"
 	root.SetArgs([]string{"version"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("version execute failed: %v", err)

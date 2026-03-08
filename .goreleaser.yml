@@ -10,6 +10,8 @@ builds:
   - id: things-agent
     main: .
     binary: things-agent
+    ldflags:
+      - -s -w -X main.cliVersion={{ .Version }}
     env:
       - CGO_ENABLED=0
     goos:

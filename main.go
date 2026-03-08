@@ -13,9 +13,10 @@ const (
 	backupDirName     = "Backups"
 	backupTSFormat    = "2006-01-02:15-04-05"
 	maxBackupsToKeep  = 50
-	cliVersion        = "0.3.15"
 	thingsDataPattern = "Library/Group Containers/*.com.culturedcode.ThingsMac/ThingsData-*/Things Database.thingsdatabase"
 )
+
+var cliVersion = "dev"
 
 var config = struct {
 	bundleID  string
@@ -116,7 +117,7 @@ quiesces Things, verifies restored files, and rolls back on failure.`,
 			Use:   "version",
 			Short: "Show CLI version",
 			Run: func(cmd *cobra.Command, args []string) {
-				fmt.Println("things", cliVersion)
+				fmt.Fprintln(cmd.OutOrStdout(), "things", effectiveCLIVersion())
 			},
 		},
 	)

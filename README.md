@@ -48,6 +48,12 @@ Install the unstable version (latest `main`):
 go install github.com/alnah/things-agent@main
 ```
 
+Version behavior:
+
+- builds installed from `@main` report `dev` (or `dev (<commit>)` when VCS build info is available)
+- builds installed from a release tag report that tagged version
+- release archives inject the tagged version at build time
+
 Releases are built from `v*` tags with GoReleaser.
 
 ## CI and coverage
