@@ -64,4 +64,16 @@ func TestBackupIfDestructiveBranches(t *testing.T) {
 	if !foundIndex {
 		t.Fatal("destructive auto backup should write an index manifest")
 	}
+	manager := newBackupManager(tmp)
+	ts, err := manager.Latest(context.Background())
+	if err != nil {
+		t.Fatalf("Latest failed: %v", err)
+	}
+	metadata, err := manager.loadBackupMetadata(ts)
+	if err != nil {
+		t.Fatalf("loadBackupMetadata failed: %v", err)
+	}
+	if metadata.Kind != backupKindSafety || metadata.Reason != "automatic rollback checkpoint" {
+		t.Fatalf("unexpected destructive backup metadata: %#v", metadata)
+	}
 }

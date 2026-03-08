@@ -547,6 +547,57 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 	})
 
+	t.Run("restore list exposes session and explicit backup kinds", func(t *testing.T) {
+		fr := &fakeRunner{}
+		tmp := setupTestRuntimeWithDB(t, fr)
+
+		if err := executeAcceptanceRoot(t, "backup"); err != nil {
+			t.Fatalf("expected explicit backup to succeed: %v", err)
+		}
+		if err := executeAcceptanceRoot(t, "session-start"); err != nil {
+			t.Fatalf("expected session-start to succeed: %v", err)
+		}
+
+		listStdout, err := captureStdout(t, func() error {
+			return executeAcceptanceRoot(t, "restore", "list", "--json")
+		})
+		if err != nil {
+			t.Fatalf("expected restore list to succeed: %v", err)
+		}
+
+		var snapshots []map[string]any
+		if err := json.Unmarshal([]byte(listStdout), &snapshots); err != nil {
+			t.Fatalf("decode restore list json: %v\nstdout=%q", err, listStdout)
+		}
+		if len(snapshots) < 2 {
+			t.Fatalf("expected two snapshots, got %#v", snapshots)
+		}
+
+		foundKinds := map[string]bool{}
+		for _, snapshot := range snapshots {
+			kind, _ := snapshot["kind"].(string)
+			if kind != "" {
+				foundKinds[kind] = true
+			}
+		}
+		if !foundKinds[string(backupKindExplicit)] || !foundKinds[string(backupKindSession)] {
+			t.Fatalf("expected explicit and session backup kinds, got %#v", snapshots)
+		}
+
+		manager := newBackupManager(tmp)
+		latestTS, err := manager.Latest(context.Background())
+		if err != nil {
+			t.Fatalf("latest snapshot failed: %v", err)
+		}
+		latestMeta, err := manager.loadBackupMetadata(latestTS)
+		if err != nil {
+			t.Fatalf("loadBackupMetadata failed: %v", err)
+		}
+		if latestMeta.Kind != backupKindSession {
+			t.Fatalf("expected latest backup to be session kind, got %#v", latestMeta)
+		}
+	})
+
 	t.Run("restore preflight reports readiness as structured json", func(t *testing.T) {
 		fr := &fakeRunner{}
 		setupTestRuntimeWithDB(t, fr)

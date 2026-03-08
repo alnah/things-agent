@@ -155,6 +155,33 @@ func TestBackupManagerCreateWithMetadataWritesIndexManifest(t *testing.T) {
 	}
 }
 
+func TestBackupManagerListFallsBackToUnknownWithoutIndexMetadata(t *testing.T) {
+	tmp := t.TempDir()
+	bm := newBackupManager(tmp)
+	backupPath, err := bm.ensureBackupDir()
+	if err != nil {
+		t.Fatalf("ensureBackupDir failed: %v", err)
+	}
+	ts := "2026-03-08:09-10-11"
+	for _, base := range []string{"main.sqlite", "main.sqlite-shm", "main.sqlite-wal"} {
+		p := filepath.Join(backupPath, base+"."+ts+".bak")
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatalf("seed backup %s failed: %v", p, err)
+		}
+	}
+
+	snapshots, err := bm.List(context.Background())
+	if err != nil {
+		t.Fatalf("List failed: %v", err)
+	}
+	if len(snapshots) != 1 {
+		t.Fatalf("expected one snapshot, got %#v", snapshots)
+	}
+	if snapshots[0].Kind != backupKindUnknown || snapshots[0].SourceCommand != "" || snapshots[0].Reason != "" {
+		t.Fatalf("expected unknown backup metadata fallback, got %#v", snapshots[0])
+	}
+}
+
 func TestBackupManagerCreateWritesSemanticManifest(t *testing.T) {
 	tmp := t.TempDir()
 	for _, base := range []string{"main.sqlite", "main.sqlite-shm", "main.sqlite-wal"} {
