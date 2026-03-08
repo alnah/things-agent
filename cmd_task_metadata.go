@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -49,11 +50,7 @@ func newSetTagsCmd() *cobra.Command {
 		Use:   "set-tags",
 		Short: "Set tags on a task or project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
@@ -65,14 +62,13 @@ func newSetTagsCmd() *cobra.Command {
 			if len(tagList) == 0 {
 				return errors.New("specify at least one tag in --tags")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			script := fmt.Sprintf(`tell application id "%s"
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				script := fmt.Sprintf(`tell application id "%s"
 %s  set tag names of t to "%s"
   return id of t
 end tell`, cfg.bundleID, scriptResolveItemRef(name, id), escapeApple(strings.Join(tagList, ", ")))
-			return runResult(ctx, cfg, script)
+				return runResult(ctx, cfg, script)
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -88,11 +84,7 @@ func newSetTaskTagsCmd() *cobra.Command {
 		Use:   "set-task-tags",
 		Short: "Set task tags exactly",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
@@ -104,21 +96,20 @@ func newSetTaskTagsCmd() *cobra.Command {
 			if len(tagList) == 0 {
 				return errors.New("specify at least one tag in --tags")
 			}
-			item, err := readCurrentTaskItem(cmd, cfg, name, id)
-			if err != nil {
-				return err
-			}
-			token, err := requireAuthToken(cfg)
-			if err != nil {
-				return err
-			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runThingsURL(ctx, cfg, "update", map[string]string{
-				"auth-token": token,
-				"id":         item.ID,
-				"tags":       strings.Join(tagList, ", "),
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				item, err := readCurrentTaskItem(cmd, cfg, name, id)
+				if err != nil {
+					return err
+				}
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				return runThingsURL(ctx, cfg, "update", map[string]string{
+					"auth-token": token,
+					"id":         item.ID,
+					"tags":       strings.Join(tagList, ", "),
+				})
 			})
 		},
 	}
@@ -135,11 +126,7 @@ func newAddTaskTagsCmd() *cobra.Command {
 		Use:   "add-task-tags",
 		Short: "Add tags to a task (merge with existing tags)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
@@ -151,21 +138,20 @@ func newAddTaskTagsCmd() *cobra.Command {
 			if len(tagList) == 0 {
 				return errors.New("specify at least one tag in --tags")
 			}
-			item, err := readCurrentTaskItem(cmd, cfg, name, id)
-			if err != nil {
-				return err
-			}
-			token, err := requireAuthToken(cfg)
-			if err != nil {
-				return err
-			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runThingsURL(ctx, cfg, "update", map[string]string{
-				"auth-token": token,
-				"id":         item.ID,
-				"add-tags":   strings.Join(tagList, ", "),
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				item, err := readCurrentTaskItem(cmd, cfg, name, id)
+				if err != nil {
+					return err
+				}
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				return runThingsURL(ctx, cfg, "update", map[string]string{
+					"auth-token": token,
+					"id":         item.ID,
+					"add-tags":   strings.Join(tagList, ", "),
+				})
 			})
 		},
 	}
@@ -182,11 +168,7 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 		Use:   "remove-task-tags",
 		Short: "Remove tags from a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
@@ -198,21 +180,20 @@ func newRemoveTaskTagsCmd() *cobra.Command {
 			if len(tagList) == 0 {
 				return errors.New("specify at least one tag in --tags")
 			}
-			item, err := readCurrentTaskItem(cmd, cfg, name, id)
-			if err != nil {
-				return err
-			}
-			token, err := requireAuthToken(cfg)
-			if err != nil {
-				return err
-			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runThingsURL(ctx, cfg, "update", map[string]string{
-				"auth-token": token,
-				"id":         item.ID,
-				"tags":       strings.Join(filterTagList(item.Tags, tagList), ", "),
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				item, err := readCurrentTaskItem(cmd, cfg, name, id)
+				if err != nil {
+					return err
+				}
+				token, err := requireAuthToken(cfg)
+				if err != nil {
+					return err
+				}
+				return runThingsURL(ctx, cfg, "update", map[string]string{
+					"auth-token": token,
+					"id":         item.ID,
+					"tags":       strings.Join(filterTagList(item.Tags, tagList), ", "),
+				})
 			})
 		},
 	}
@@ -229,11 +210,7 @@ func newSetTaskNotesCmd() *cobra.Command {
 		Use:   "set-task-notes",
 		Short: "Set task notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
@@ -241,10 +218,9 @@ func newSetTaskNotesCmd() *cobra.Command {
 			if strings.TrimSpace(notes) == "" {
 				return errors.New("--notes is required")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptSetTaskNotes(cfg.bundleID, name, id, notes))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptSetTaskNotes(cfg.bundleID, name, id, notes))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -260,11 +236,7 @@ func newAppendTaskNotesCmd() *cobra.Command {
 		Use:   "append-task-notes",
 		Short: "Append notes to task notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
@@ -272,10 +244,9 @@ func newAppendTaskNotesCmd() *cobra.Command {
 			if strings.TrimSpace(notes) == "" {
 				return errors.New("--notes is required")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			return runResult(ctx, cfg, scriptAppendTaskNotes(cfg.bundleID, name, id, notes, separator))
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				return runResult(ctx, cfg, scriptAppendTaskNotes(cfg.bundleID, name, id, notes, separator))
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
@@ -293,11 +264,7 @@ func newSetTaskDateCmd() *cobra.Command {
 		Use:   "set-task-date",
 		Short: "Set/update task due date",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg, err := resolveRuntimeConfig(ctx)
-			if err != nil {
-				return err
-			}
+			var err error
 			name, id, err = resolveEntitySelector(name, id)
 			if err != nil {
 				return err
@@ -313,44 +280,43 @@ func newSetTaskDateCmd() *cobra.Command {
 			if !clearDue && !clearDeadline && dueDate == "" && deadlineDate == "" {
 				return errors.New("provide --due, --deadline, --clear-due, or --clear-deadline")
 			}
-			if err := backupIfNeeded(ctx, cfg); err != nil {
-				return err
-			}
-			if clearDue {
-				item, err := readCurrentTaskItem(cmd, cfg, name, id)
-				if err != nil {
-					return err
+			return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {
+				if clearDue {
+					item, err := readCurrentTaskItem(cmd, cfg, name, id)
+					if err != nil {
+						return err
+					}
+					token, err := requireAuthToken(cfg)
+					if err != nil {
+						return err
+					}
+					if err := runThingsURL(ctx, cfg, "update", map[string]string{
+						"auth-token": token,
+						"id":         item.ID,
+						"when":       "",
+					}); err != nil {
+						return err
+					}
 				}
-				token, err := requireAuthToken(cfg)
-				if err != nil {
-					return err
+				if dueDate != "" {
+					if err := runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, id, dueDate, false)); err != nil {
+						return err
+					}
 				}
-				if err := runThingsURL(ctx, cfg, "update", map[string]string{
-					"auth-token": token,
-					"id":         item.ID,
-					"when":       "",
-				}); err != nil {
-					return err
+				if clearDeadline || deadlineDate != "" {
+					token, err := requireAuthToken(cfg)
+					if err != nil {
+						return err
+					}
+					if clearDeadline && deadlineDate == "" {
+						return runResult(ctx, cfg, scriptClearTaskDeadlineByRef(cfg.bundleID, name, id, token))
+					}
+					if err := runResult(ctx, cfg, scriptSetTaskDeadlineByRef(cfg.bundleID, name, id, deadlineDate, token)); err != nil {
+						return err
+					}
 				}
-			}
-			if dueDate != "" {
-				if err := runResult(ctx, cfg, scriptSetTaskDate(cfg.bundleID, name, id, dueDate, false)); err != nil {
-					return err
-				}
-			}
-			if clearDeadline || deadlineDate != "" {
-				token, err := requireAuthToken(cfg)
-				if err != nil {
-					return err
-				}
-				if clearDeadline && deadlineDate == "" {
-					return runResult(ctx, cfg, scriptClearTaskDeadlineByRef(cfg.bundleID, name, id, token))
-				}
-				if err := runResult(ctx, cfg, scriptSetTaskDeadlineByRef(cfg.bundleID, name, id, deadlineDate, token)); err != nil {
-					return err
-				}
-			}
-			return nil
+				return nil
+			})
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "Task name")
