@@ -64,15 +64,19 @@ func TestIntegrationRestoreDryRunReturnsStructuredJournal(t *testing.T) {
 	}
 	targetTS := inferTimestamp(created[0])
 
-	fr := &fakeRunner{runFn: func(script string) (string, error) {
+	runner := runnerFunc(func(_ context.Context, script string) (string, error) {
 		switch {
 		case strings.Contains(script, "return running"):
 			return "false", nil
+		case strings.Contains(script, "restore semantic verify"):
+			return "L\t0\nP\t0\nT\t0", nil
+		case strings.Contains(script, "count of lists") && strings.Contains(script, "count of projects") && strings.Contains(script, "count of to dos"):
+			return "L\t0\nP\t0\nT\t0", nil
 		default:
 			return "ok", nil
 		}
-	}}
-	setupTestRuntime(t, tmp, fr)
+	})
+	setupTestRuntime(t, tmp, runner)
 
 	stdout, err := captureStdout(t, func() error {
 		root := newRootCmd()
@@ -96,5 +100,102 @@ func TestIntegrationRestoreDryRunReturnsStructuredJournal(t *testing.T) {
 	preflight, ok := journal["preflight"].(map[string]any)
 	if !ok || preflight["ok"] != true {
 		t.Fatalf("expected successful preflight report, got %#v", journal["preflight"])
+	}
+}
+
+func TestIntegrationRestoreListJSONIncludesBackupKinds(t *testing.T) {
+	fr := &fakeRunner{}
+	tmp := setupTestRuntimeWithDB(t, fr)
+
+	root := newRootCmd()
+	root.SetArgs([]string{"backup"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("backup failed: %v", err)
+	}
+
+	root = newRootCmd()
+	root.SetArgs([]string{"session-start"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("session-start failed: %v", err)
+	}
+
+	stdout, err := captureStdout(t, func() error {
+		root := newRootCmd()
+		root.SetArgs([]string{"restore", "list", "--json"})
+		return root.Execute()
+	})
+	if err != nil {
+		t.Fatalf("restore list failed: %v", err)
+	}
+
+	var snapshots []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &snapshots); err != nil {
+		t.Fatalf("decode restore list json: %v\nstdout=%q", err, stdout)
+	}
+	if len(snapshots) < 2 {
+		t.Fatalf("expected at least two snapshots, got %#v", snapshots)
+	}
+
+	foundKinds := map[string]bool{}
+	for _, snapshot := range snapshots {
+		kind, _ := snapshot["kind"].(string)
+		if kind != "" {
+			foundKinds[kind] = true
+		}
+	}
+	if !foundKinds[string(backupKindExplicit)] || !foundKinds[string(backupKindSession)] {
+		t.Fatalf("expected explicit and session backup kinds, got %#v", snapshots)
+	}
+
+	manager := newBackupManager(tmp)
+	latestTS, err := manager.Latest(context.Background())
+	if err != nil {
+		t.Fatalf("latest snapshot failed: %v", err)
+	}
+	latestMeta, err := manager.loadBackupMetadata(latestTS)
+	if err != nil {
+		t.Fatalf("loadBackupMetadata failed: %v", err)
+	}
+	if latestMeta.Kind != backupKindSession || latestMeta.SourceCommand != "session-start" {
+		t.Fatalf("unexpected latest backup metadata: %#v", latestMeta)
+	}
+}
+
+func TestIntegrationRestoreCreatesSafetyBackupMetadata(t *testing.T) {
+	tmp := setupTestRuntimeWithDB(t, &fakeRunner{})
+	writeLiveDBSet(t, tmp, "live")
+
+	bm := newBackupManager(tmp)
+	created, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	targetTS := inferTimestamp(created[0])
+	writeLiveDBSet(t, tmp, "after")
+
+	app := &fakeAppController{running: []bool{false}}
+	exec := newTestRestoreExecutor(bm, app)
+
+	journal, err := exec.Execute(context.Background(), targetTS, false)
+	if err != nil {
+		t.Fatalf("restore failed: %v", err)
+	}
+	if journal.PreRestoreBackup == nil || journal.PreRestoreBackup.Kind != string(backupKindSafety) {
+		t.Fatalf("expected safety pre-restore backup kind, got %#v", journal.PreRestoreBackup)
+	}
+
+	snapshots, err := bm.List(context.Background())
+	if err != nil {
+		t.Fatalf("list backups failed: %v", err)
+	}
+	var found bool
+	for _, snapshot := range snapshots {
+		if snapshot.Kind == backupKindSafety && snapshot.SourceCommand == "restore" && snapshot.Reason == "pre-restore rollback checkpoint" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected restore-created safety backup in snapshot list, got %#v", snapshots)
 	}
 }
