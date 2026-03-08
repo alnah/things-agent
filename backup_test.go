@@ -87,6 +87,13 @@ func TestBackupManagerCreateAndLatest(t *testing.T) {
 	if ts == "" {
 		t.Fatal("expected non-empty latest timestamp")
 	}
+	metadata, err := bm.loadBackupMetadata(ts)
+	if err != nil {
+		t.Fatalf("loadBackupMetadata failed: %v", err)
+	}
+	if metadata.Kind != backupKindExplicit || metadata.SourceCommand != "backup" {
+		t.Fatalf("unexpected default backup metadata: %#v", metadata)
+	}
 }
 
 func TestBackupManagerListAndVerify(t *testing.T) {
@@ -116,8 +123,35 @@ func TestBackupManagerListAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify failed: %v", err)
 	}
-	if snapshot.Timestamp != ts || !snapshot.Complete || len(snapshot.Files) != 3 {
+	if snapshot.Timestamp != ts || snapshot.Kind != backupKindExplicit || !snapshot.Complete || len(snapshot.Files) != 3 {
 		t.Fatalf("unexpected verified snapshot: %#v", snapshot)
+	}
+}
+
+func TestBackupManagerCreateWithMetadataWritesIndexManifest(t *testing.T) {
+	tmp := t.TempDir()
+	for _, base := range []string{"main.sqlite", "main.sqlite-shm", "main.sqlite-wal"} {
+		if err := os.WriteFile(filepath.Join(tmp, base), []byte("x"), 0o644); err != nil {
+			t.Fatalf("write %s failed: %v", base, err)
+		}
+	}
+
+	bm := newBackupManager(tmp)
+	created, err := bm.CreateWithMetadata(context.Background(), backupCreateMetadata{
+		Kind:          backupKindSession,
+		SourceCommand: "session-start",
+		Reason:        "session bootstrap checkpoint",
+	})
+	if err != nil {
+		t.Fatalf("CreateWithMetadata failed: %v", err)
+	}
+	ts := inferTimestamp(created[0])
+	got, err := bm.loadBackupMetadata(ts)
+	if err != nil {
+		t.Fatalf("loadBackupMetadata failed: %v", err)
+	}
+	if got.Kind != backupKindSession || got.SourceCommand != "session-start" || got.Reason != "session bootstrap checkpoint" || got.CreatedAt == "" {
+		t.Fatalf("unexpected backup index metadata: %#v", got)
 	}
 }
 

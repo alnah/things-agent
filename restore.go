@@ -112,6 +112,7 @@ type restoreVerificationReport struct {
 
 type restoreBackupRecord struct {
 	Timestamp string   `json:"timestamp"`
+	Kind      string   `json:"kind,omitempty"`
 	Files     []string `json:"files"`
 }
 
@@ -224,7 +225,11 @@ func (r *restoreExecutor) Execute(ctx context.Context, timestamp string, dryRun 
 	}
 	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "stable-files", Status: "ok"})
 
-	preRestoreBackup, err := r.backups.Create(ctx)
+	preRestoreBackup, err := r.backups.CreateWithMetadata(ctx, backupCreateMetadata{
+		Kind:          backupKindSafety,
+		SourceCommand: "restore",
+		Reason:        "pre-restore rollback checkpoint",
+	})
 	if err != nil {
 		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "pre-restore-backup", Status: "failed", Error: err.Error()})
 		return journal, fmt.Errorf("pre-restore backup failed: %w", err)
@@ -235,7 +240,7 @@ func (r *restoreExecutor) Execute(ctx context.Context, timestamp string, dryRun 
 		journal.Steps = append(journal.Steps, restoreJournalStep{Name: "pre-restore-backup", Status: "failed", Error: err.Error()})
 		return journal, err
 	}
-	journal.PreRestoreBackup = &restoreBackupRecord{Timestamp: preRestoreTS, Files: preRestoreBackup}
+	journal.PreRestoreBackup = &restoreBackupRecord{Timestamp: preRestoreTS, Kind: string(backupKindSafety), Files: preRestoreBackup}
 	journal.Steps = append(journal.Steps, restoreJournalStep{Name: "pre-restore-backup", Status: "ok"})
 
 	restored, err := r.backups.Restore(ctx, preflight.Timestamp)

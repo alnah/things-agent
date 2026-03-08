@@ -65,6 +65,9 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		if ts == "" {
 			t.Fatalf("expected backup timestamp in %q", stdout)
 		}
+		if _, err := os.Stat(filepath.Join(tmp, backupDirName, "index."+ts+".json")); err != nil {
+			t.Fatalf("expected backup index manifest, got err=%v", err)
+		}
 		if _, err := os.Stat(filepath.Join(tmp, backupDirName, "state."+ts+".json")); !os.IsNotExist(err) {
 			t.Fatalf("expected no state snapshot manifest for plain backup, got err=%v", err)
 		}
@@ -496,11 +499,11 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 			t.Fatalf("expected backup to succeed: %v", err)
 		}
 
-		entries, err := os.ReadDir(tmp + "/" + backupDirName)
-		if err != nil || len(entries) == 0 {
-			t.Fatalf("expected at least one backup entry, err=%v count=%d", err, len(entries))
+		manager := newBackupManager(tmp)
+		ts, err := manager.Latest(context.Background())
+		if err != nil {
+			t.Fatalf("latest snapshot failed: %v", err)
 		}
-		ts := inferTimestamp(entries[0].Name())
 
 		listStdout, err := captureStdout(t, func() error {
 			return executeAcceptanceRoot(t, "restore", "list", "--json")
@@ -515,6 +518,9 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		}
 		if len(snapshots) == 0 || snapshots[0]["timestamp"] == "" || snapshots[0]["complete"] != true {
 			t.Fatalf("unexpected restore list payload: %#v", snapshots)
+		}
+		if snapshots[0]["kind"] == "" || snapshots[0]["source_command"] == "" || snapshots[0]["reason"] == "" {
+			t.Fatalf("expected restore list to expose backup metadata: %#v", snapshots[0])
 		}
 
 		verifyStdout, err := captureStdout(t, func() error {
@@ -572,11 +578,11 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		if err := executeAcceptanceRoot(t, "backup"); err != nil {
 			t.Fatalf("expected backup to succeed: %v", err)
 		}
-		entries, err := os.ReadDir(tmp + "/" + backupDirName)
-		if err != nil || len(entries) == 0 {
-			t.Fatalf("expected at least one backup entry, err=%v count=%d", err, len(entries))
+		manager := newBackupManager(tmp)
+		ts, err := manager.Latest(context.Background())
+		if err != nil {
+			t.Fatalf("latest snapshot failed: %v", err)
 		}
-		ts := inferTimestamp(entries[0].Name())
 		before := readLiveDBFile(t, tmp, "main.sqlite")
 
 		stdout, err := captureStdout(t, func() error {
@@ -613,11 +619,11 @@ func TestAcceptanceCLIContracts(t *testing.T) {
 		if err := executeAcceptanceRoot(t, "backup"); err != nil {
 			t.Fatalf("expected backup to succeed: %v", err)
 		}
-		entries, err := os.ReadDir(tmp + "/" + backupDirName)
-		if err != nil || len(entries) == 0 {
-			t.Fatalf("expected at least one backup entry, err=%v count=%d", err, len(entries))
+		manager := newBackupManager(tmp)
+		ts, err := manager.Latest(context.Background())
+		if err != nil {
+			t.Fatalf("latest snapshot failed: %v", err)
 		}
-		ts := inferTimestamp(entries[0].Name())
 
 		stdout, err := captureStdout(t, func() error {
 			return executeAcceptanceRoot(t, "restore", "--timestamp", ts, "--json")

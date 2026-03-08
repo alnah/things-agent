@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -51,9 +52,16 @@ func TestBackupIfDestructiveBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadDir backup dir failed: %v", err)
 	}
+	var foundIndex bool
 	for _, entry := range entries {
-		if filepath.Ext(entry.Name()) == ".json" {
-			t.Fatalf("destructive auto backup should not write manifests, got %s", entry.Name())
+		if strings.HasPrefix(entry.Name(), "index.") && filepath.Ext(entry.Name()) == ".json" {
+			foundIndex = true
 		}
+		if strings.HasPrefix(entry.Name(), "manifest.") && filepath.Ext(entry.Name()) == ".json" {
+			t.Fatalf("destructive auto backup should not write semantic manifests, got %s", entry.Name())
+		}
+	}
+	if !foundIndex {
+		t.Fatal("destructive auto backup should write an index manifest")
 	}
 }

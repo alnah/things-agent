@@ -176,7 +176,7 @@ func newRestoreListCmd() *cobra.Command {
 				return writeJSON(snapshots)
 			}
 			for _, snapshot := range snapshots {
-				fmt.Printf("%s\tcomplete=%t\tfiles=%d\n", snapshot.Timestamp, snapshot.Complete, len(snapshot.Files))
+				fmt.Printf("%s\tkind=%s\tcomplete=%t\tfiles=%d\n", snapshot.Timestamp, snapshot.Kind, snapshot.Complete, len(snapshot.Files))
 			}
 			return nil
 		},
@@ -253,7 +253,7 @@ func newSessionStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			exec := newBackupExecutor(cfg)
+			exec := newSessionBackupExecutor(cfg)
 			exec.settleDelay = settle
 			paths, err := exec.Create(ctx)
 			if err != nil {

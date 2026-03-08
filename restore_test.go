@@ -226,6 +226,30 @@ func TestRestoreExecutorDryRunReturnsJournalWithoutMutatingLiveFiles(t *testing.
 	}
 }
 
+func TestRestoreExecutorRecordsSafetyPreRestoreBackup(t *testing.T) {
+	tmp := t.TempDir()
+	writeLiveDBSet(t, tmp, "before")
+
+	bm := newBackupManager(tmp)
+	created, err := bm.Create(context.Background())
+	if err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	targetTS := inferTimestamp(created[0])
+	writeLiveDBSet(t, tmp, "after")
+
+	app := &fakeAppController{running: []bool{true, true, false}}
+	exec := newTestRestoreExecutor(bm, app)
+
+	journal, err := exec.Execute(context.Background(), targetTS, false)
+	if err != nil {
+		t.Fatalf("execute restore failed: %v", err)
+	}
+	if journal.PreRestoreBackup == nil || journal.PreRestoreBackup.Kind != string(backupKindSafety) {
+		t.Fatalf("expected safety pre-restore backup metadata, got %#v", journal.PreRestoreBackup)
+	}
+}
+
 func TestRestoreExecutorRollsBackOnCopyFailure(t *testing.T) {
 	tmp := t.TempDir()
 	writeLiveDBSet(t, tmp, "before")

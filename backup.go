@@ -25,10 +25,29 @@ type backupManager struct {
 	semanticSnapshot func(context.Context) (backupSemanticSnapshot, error)
 }
 
+type backupKind string
+
+const (
+	backupKindUnknown  backupKind = "unknown"
+	backupKindSession  backupKind = "session"
+	backupKindExplicit backupKind = "explicit"
+	backupKindSafety   backupKind = "safety"
+)
+
+type backupCreateMetadata struct {
+	Kind          backupKind
+	SourceCommand string
+	Reason        string
+}
+
 type backupSnapshot struct {
-	Timestamp string   `json:"timestamp"`
-	Complete  bool     `json:"complete"`
-	Files     []string `json:"files"`
+	Timestamp     string     `json:"timestamp"`
+	Kind          backupKind `json:"kind"`
+	CreatedAt     string     `json:"created_at,omitempty"`
+	SourceCommand string     `json:"source_command,omitempty"`
+	Reason        string     `json:"reason,omitempty"`
+	Complete      bool       `json:"complete"`
+	Files         []string   `json:"files"`
 }
 
 type backupSemanticSnapshot struct {
@@ -50,6 +69,14 @@ func newBackupManager(dataDir string) *backupManager {
 }
 
 func (bm *backupManager) Create(ctx context.Context) ([]string, error) {
+	return bm.CreateWithMetadata(ctx, backupCreateMetadata{
+		Kind:          backupKindExplicit,
+		SourceCommand: "backup",
+		Reason:        "manual checkpoint",
+	})
+}
+
+func (bm *backupManager) CreateWithMetadata(ctx context.Context, meta backupCreateMetadata) ([]string, error) {
 	_ = ctx
 	dir, err := bm.ensureBackupDir()
 	if err != nil {
@@ -89,6 +116,9 @@ func (bm *backupManager) Create(ctx context.Context) ([]string, error) {
 	}
 	if len(created) == 0 {
 		return nil, errors.New("no backupable database file found")
+	}
+	if err := bm.writeBackupMetadata(buildBackupSnapshot(ts, created, meta)); err != nil {
+		return nil, fmt.Errorf("backup created but metadata save failed: %w", err)
 	}
 	if bm.semanticSnapshot != nil {
 		snapshot, err := bm.semanticSnapshot(ctx)
@@ -130,11 +160,15 @@ func (bm *backupManager) List(ctx context.Context) ([]backupSnapshot, error) {
 		if err != nil {
 			return nil, err
 		}
-		snapshots = append(snapshots, backupSnapshot{
-			Timestamp: ts,
-			Complete:  len(files) > 0,
-			Files:     files,
-		})
+		snapshot := buildBackupSnapshot(ts, files, backupCreateMetadata{})
+		if metadata, err := bm.loadBackupMetadata(ts); err == nil {
+			snapshot = metadata
+			snapshot.Files = append([]string(nil), files...)
+			snapshot.Complete = len(files) > 0
+		} else if !os.IsNotExist(err) {
+			return nil, err
+		}
+		snapshots = append(snapshots, snapshot)
 	}
 	return snapshots, nil
 }
@@ -151,11 +185,15 @@ func (bm *backupManager) Verify(ctx context.Context, ts string) (backupSnapshot,
 	if err := verifySnapshotAgainstLive(bm.dataDir, files); err != nil {
 		return backupSnapshot{}, err
 	}
-	return backupSnapshot{
-		Timestamp: ts,
-		Complete:  true,
-		Files:     files,
-	}, nil
+	snapshot := buildBackupSnapshot(ts, files, backupCreateMetadata{})
+	if metadata, err := bm.loadBackupMetadata(ts); err == nil {
+		snapshot = metadata
+		snapshot.Files = append([]string(nil), files...)
+		snapshot.Complete = true
+	} else if err != nil && !os.IsNotExist(err) {
+		return backupSnapshot{}, err
+	}
+	return snapshot, nil
 }
 
 func (bm *backupManager) FilesForTimestamp(ctx context.Context, ts string) ([]string, error) {
@@ -271,6 +309,9 @@ func (bm *backupManager) prune(ctx context.Context, keep int) error {
 		if err := os.Remove(bm.semanticSnapshotPath(ts)); err != nil && !os.IsNotExist(err) {
 			return err
 		}
+		if err := os.Remove(bm.backupMetadataPath(ts)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
 		if err := os.Remove(filepath.Join(bm.backupPath(), "state."+ts+".json")); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -312,6 +353,10 @@ func (bm *backupManager) backupPath() string {
 
 func (bm *backupManager) semanticSnapshotPath(ts string) string {
 	return filepath.Join(bm.backupPath(), "manifest."+ts+".json")
+}
+
+func (bm *backupManager) backupMetadataPath(ts string) string {
+	return filepath.Join(bm.backupPath(), "index."+ts+".json")
 }
 
 func (bm *backupManager) ensureBackupDir() (string, error) {
@@ -386,6 +431,80 @@ func (bm *backupManager) loadSemanticSnapshot(ts string) (backupSemanticSnapshot
 	var snapshot backupSemanticSnapshot
 	if err := json.Unmarshal(data, &snapshot); err != nil {
 		return backupSemanticSnapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func buildBackupSnapshot(ts string, files []string, meta backupCreateMetadata) backupSnapshot {
+	meta = normalizeBackupCreateMetadata(meta)
+	createdAt := ""
+	if parsed, err := time.ParseInLocation(backupTSFormat, ts, time.Local); err == nil {
+		createdAt = parsed.Format(time.RFC3339)
+	}
+	copiedFiles := append([]string(nil), files...)
+	sort.Strings(copiedFiles)
+	return backupSnapshot{
+		Timestamp:     ts,
+		Kind:          meta.Kind,
+		CreatedAt:     createdAt,
+		SourceCommand: meta.SourceCommand,
+		Reason:        meta.Reason,
+		Complete:      len(copiedFiles) > 0,
+		Files:         copiedFiles,
+	}
+}
+
+func normalizeBackupCreateMetadata(meta backupCreateMetadata) backupCreateMetadata {
+	meta.Kind = backupKind(strings.TrimSpace(string(meta.Kind)))
+	meta.SourceCommand = strings.TrimSpace(meta.SourceCommand)
+	meta.Reason = strings.TrimSpace(meta.Reason)
+	if meta.Kind == "" {
+		meta.Kind = backupKindUnknown
+	}
+	switch meta.Kind {
+	case backupKindSession:
+		if meta.SourceCommand == "" {
+			meta.SourceCommand = "session-start"
+		}
+		if meta.Reason == "" {
+			meta.Reason = "session bootstrap checkpoint"
+		}
+	case backupKindSafety:
+		if meta.SourceCommand == "" {
+			meta.SourceCommand = "auto-safety"
+		}
+		if meta.Reason == "" {
+			meta.Reason = "automatic rollback checkpoint"
+		}
+	case backupKindExplicit:
+		if meta.SourceCommand == "" {
+			meta.SourceCommand = "backup"
+		}
+		if meta.Reason == "" {
+			meta.Reason = "manual checkpoint"
+		}
+	default:
+		meta.Kind = backupKindUnknown
+	}
+	return meta
+}
+
+func (bm *backupManager) writeBackupMetadata(snapshot backupSnapshot) error {
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(bm.backupMetadataPath(snapshot.Timestamp), data, 0o644)
+}
+
+func (bm *backupManager) loadBackupMetadata(ts string) (backupSnapshot, error) {
+	data, err := os.ReadFile(bm.backupMetadataPath(ts))
+	if err != nil {
+		return backupSnapshot{}, err
+	}
+	var snapshot backupSnapshot
+	if err := json.Unmarshal(data, &snapshot); err != nil {
+		return backupSnapshot{}, err
 	}
 	return snapshot, nil
 }

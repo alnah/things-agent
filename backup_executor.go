@@ -12,6 +12,7 @@ const backupSettleDelay = 5 * time.Second
 type backupExecutor struct {
 	runtime     *restoreExecutor
 	settleDelay time.Duration
+	createMeta  backupCreateMetadata
 }
 
 func newBackupExecutor(cfg *runtimeConfig) *backupExecutor {
@@ -32,11 +33,32 @@ func newBackupExecutor(cfg *runtimeConfig) *backupExecutor {
 	return &backupExecutor{
 		runtime:     runtime,
 		settleDelay: backupSettleDelay,
+		createMeta: backupCreateMetadata{
+			Kind:          backupKindExplicit,
+			SourceCommand: "backup",
+			Reason:        "manual checkpoint",
+		},
 	}
 }
 
+func newSessionBackupExecutor(cfg *runtimeConfig) *backupExecutor {
+	exec := newBackupExecutor(cfg)
+	exec.createMeta = backupCreateMetadata{
+		Kind:          backupKindSession,
+		SourceCommand: "session-start",
+		Reason:        "session bootstrap checkpoint",
+	}
+	return exec
+}
+
 func newDestructiveBackupExecutor(cfg *runtimeConfig) *backupExecutor {
-	return newBackupExecutor(cfg)
+	exec := newBackupExecutor(cfg)
+	exec.createMeta = backupCreateMetadata{
+		Kind:          backupKindSafety,
+		SourceCommand: "auto-safety",
+		Reason:        "automatic rollback checkpoint",
+	}
+	return exec
 }
 
 func (b *backupExecutor) Create(ctx context.Context) (paths []string, err error) {
@@ -74,7 +96,7 @@ func (b *backupExecutor) Create(ctx context.Context) (paths []string, err error)
 	}
 	quiesced = true
 
-	paths, err = b.runtime.backups.Create(ctx)
+	paths, err = b.runtime.backups.CreateWithMetadata(ctx, b.createMeta)
 	if err != nil {
 		return nil, err
 	}

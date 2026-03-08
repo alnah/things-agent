@@ -91,6 +91,18 @@ func TestBackupRestoreSessionCommands(t *testing.T) {
 	if err != nil || len(entries) == 0 {
 		t.Fatalf("expected backup files, err=%v count=%d", err, len(entries))
 	}
+	manager := newBackupManager(config.dataDir)
+	sessionTS, err := manager.Latest(context.Background())
+	if err != nil {
+		t.Fatalf("latest snapshot failed after session-start: %v", err)
+	}
+	sessionMeta, err := manager.loadBackupMetadata(sessionTS)
+	if err != nil {
+		t.Fatalf("loadBackupMetadata failed: %v", err)
+	}
+	if sessionMeta.Kind != backupKindSession || sessionMeta.SourceCommand != "session-start" {
+		t.Fatalf("unexpected session metadata: %#v", sessionMeta)
+	}
 
 	restore := newRestoreCmd()
 	if err := restore.Execute(); err != nil {
@@ -104,7 +116,7 @@ func TestBackupRestoreSessionCommands(t *testing.T) {
 	}
 
 	restoreByTimestamp := newRestoreCmd()
-	restoreByTimestamp.SetArgs([]string{"--timestamp", inferTimestamp(entries[0].Name())})
+	restoreByTimestamp.SetArgs([]string{"--timestamp", sessionTS})
 	if err := restoreByTimestamp.Execute(); err != nil {
 		t.Fatalf("restore by timestamp failed: %v", err)
 	}
