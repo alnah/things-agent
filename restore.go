@@ -79,8 +79,8 @@ type restoreExecutor struct {
 	semanticTimeout     time.Duration
 	fullSemanticTimeout time.Duration
 	captureFileState    func(string) ([]liveFileState, error)
-	semanticCheck       func(context.Context) (backupSemanticSnapshot, error)
-	fullSemanticCheck   func(context.Context) (backupSemanticSnapshot, error)
+	semanticCheck       func(context.Context) (backupSemanticManifest, error)
+	fullSemanticCheck   func(context.Context) (backupSemanticManifest, error)
 }
 
 type restorePreflightReport struct {
@@ -150,8 +150,8 @@ type restoreJournal struct {
 
 type restoreSemanticVerification struct {
 	OK                 bool                    `json:"ok"`
-	Expected           *backupSemanticSnapshot `json:"expected,omitempty"`
-	Actual             backupSemanticSnapshot  `json:"actual"`
+	Expected           *backupSemanticManifest `json:"expected,omitempty"`
+	Actual             backupSemanticManifest  `json:"actual"`
 	ComparedToManifest bool                    `json:"compared_to_manifest,omitempty"`
 	TemporaryLaunch    bool                    `json:"temporary_launch,omitempty"`
 }
@@ -171,8 +171,8 @@ func newRestoreExecutor(cfg *runtimeConfig) *restoreExecutor {
 		semanticTimeout:     restoreSemanticTimeout,
 		fullSemanticTimeout: restoreFullSemanticTimeout,
 		captureFileState:    captureLiveFileState,
-		semanticCheck:       newScriptSemanticHealthSnapshotter(cfg.bundleID, cfg.runner).Snapshot,
-		fullSemanticCheck:   newScriptSemanticSnapshotter(cfg.bundleID, cfg.runner).Snapshot,
+		semanticCheck:       newScriptSemanticHealthProbe(cfg.bundleID, cfg.runner).Snapshot,
+		fullSemanticCheck:   newScriptSemanticManifestProbe(cfg.bundleID, cfg.runner).Snapshot,
 	}
 }
 
@@ -521,47 +521,47 @@ func (r *restoreExecutor) launchIsolatedWithin(ctx context.Context, label string
 	return nil
 }
 
-func (r *restoreExecutor) semanticCheckWithin(ctx context.Context, label string) (backupSemanticSnapshot, error) {
+func (r *restoreExecutor) semanticCheckWithin(ctx context.Context, label string) (backupSemanticManifest, error) {
 	timeout := r.semanticTimeout
 	if timeout <= 0 {
 		timeout = restoreSemanticTimeout
 	}
 	semanticCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	snapshot, err := r.semanticCheck(semanticCtx)
+	manifest, err := r.semanticCheck(semanticCtx)
 	if err == nil {
-		return snapshot, nil
+		return manifest, nil
 	}
 	if errors.Is(semanticCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
-		return backupSemanticSnapshot{}, fmt.Errorf("%s timed out after %s", label, timeout)
+		return backupSemanticManifest{}, fmt.Errorf("%s timed out after %s", label, timeout)
 	}
-	return backupSemanticSnapshot{}, err
+	return backupSemanticManifest{}, err
 }
 
-func (r *restoreExecutor) fullSemanticCheckWithin(ctx context.Context, label string) (backupSemanticSnapshot, error) {
+func (r *restoreExecutor) fullSemanticCheckWithin(ctx context.Context, label string) (backupSemanticManifest, error) {
 	timeout := r.fullSemanticTimeout
 	if timeout <= 0 {
 		timeout = restoreFullSemanticTimeout
 	}
 	semanticCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	snapshot, err := r.fullSemanticCheck(semanticCtx)
+	manifest, err := r.fullSemanticCheck(semanticCtx)
 	if err == nil {
-		return snapshot, nil
+		return manifest, nil
 	}
 	if errors.Is(semanticCtx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
-		return backupSemanticSnapshot{}, fmt.Errorf("%s timed out after %s", label, timeout)
+		return backupSemanticManifest{}, fmt.Errorf("%s timed out after %s", label, timeout)
 	}
-	return backupSemanticSnapshot{}, err
+	return backupSemanticManifest{}, err
 }
 
-func (r *restoreExecutor) semanticCheckForRestore(ctx context.Context, timestamp string) (backupSemanticSnapshot, error) {
-	expected, err := r.backups.loadSemanticSnapshot(timestamp)
+func (r *restoreExecutor) semanticCheckForRestore(ctx context.Context, timestamp string) (backupSemanticManifest, error) {
+	expected, err := r.backups.loadSemanticManifest(timestamp)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return r.semanticCheckWithin(ctx, "semantic verify")
 		}
-		return backupSemanticSnapshot{}, fmt.Errorf("load semantic snapshot %s: %w", timestamp, err)
+		return backupSemanticManifest{}, fmt.Errorf("load semantic manifest %s: %w", timestamp, err)
 	}
 	if expected.ListsHash != "" || expected.ProjectsHash != "" || expected.TasksHash != "" {
 		return r.fullSemanticCheckWithin(ctx, "semantic verify")
@@ -569,9 +569,9 @@ func (r *restoreExecutor) semanticCheckForRestore(ctx context.Context, timestamp
 	return r.semanticCheckWithin(ctx, "semantic verify")
 }
 
-func (r *restoreExecutor) launchIsolatedAndSmoke(ctx context.Context) (backupSemanticSnapshot, error) {
+func (r *restoreExecutor) launchIsolatedAndSmoke(ctx context.Context) (backupSemanticManifest, error) {
 	if err := r.launchIsolatedWithin(ctx, "offline launch"); err != nil {
-		return backupSemanticSnapshot{}, err
+		return backupSemanticManifest{}, err
 	}
 	return r.semanticCheckWithin(ctx, "offline smoke verify")
 }
@@ -710,22 +710,22 @@ func (r *restoreExecutor) restoreFailureWithAppState(ctx context.Context, rollba
 	return report, fmt.Errorf("%w; rollback succeeded", cause)
 }
 
-func (r *restoreExecutor) buildSemanticVerification(timestamp string, actual backupSemanticSnapshot) (restoreSemanticVerification, error) {
+func (r *restoreExecutor) buildSemanticVerification(timestamp string, actual backupSemanticManifest) (restoreSemanticVerification, error) {
 	report := restoreSemanticVerification{
 		OK:     true,
 		Actual: actual,
 	}
 
-	expected, err := r.backups.loadSemanticSnapshot(timestamp)
+	expected, err := r.backups.loadSemanticManifest(timestamp)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return report, nil
 		}
-		return report, fmt.Errorf("load semantic snapshot %s: %w", timestamp, err)
+		return report, fmt.Errorf("load semantic manifest %s: %w", timestamp, err)
 	}
 	report.Expected = &expected
 	report.ComparedToManifest = true
-	if err := compareSemanticSnapshots(expected, actual); err != nil {
+	if err := compareSemanticManifests(expected, actual); err != nil {
 		report.OK = false
 		return report, err
 	}

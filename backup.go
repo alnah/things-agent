@@ -24,7 +24,7 @@ type backupManager struct {
 	dataDir          string
 	copyFn           func(src, dst string) error
 	nowFn            func() time.Time
-	semanticSnapshot func(context.Context) (backupSemanticSnapshot, error)
+	semanticManifest func(context.Context) (backupSemanticManifest, error)
 }
 
 type backupKind string
@@ -52,7 +52,7 @@ type backupSnapshot struct {
 	Files         []string   `json:"files"`
 }
 
-type backupSemanticSnapshot struct {
+type backupSemanticManifest struct {
 	ListsCount    int      `json:"lists_count"`
 	ListsHash     string   `json:"lists_hash"`
 	ProjectsCount int      `json:"projects_count"`
@@ -122,13 +122,13 @@ func (bm *backupManager) CreateWithMetadata(ctx context.Context, meta backupCrea
 	if err := bm.writeBackupMetadata(buildBackupSnapshot(ts, created, meta)); err != nil {
 		return nil, fmt.Errorf("backup created but metadata save failed: %w", err)
 	}
-	if bm.semanticSnapshot != nil {
-		snapshot, err := bm.semanticSnapshot(ctx)
+	if bm.semanticManifest != nil {
+		manifest, err := bm.semanticManifest(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("backup created but semantic snapshot failed: %w", err)
+			return nil, fmt.Errorf("backup created but semantic manifest failed: %w", err)
 		}
-		if err := bm.writeSemanticSnapshot(ts, snapshot); err != nil {
-			return nil, fmt.Errorf("backup created but semantic snapshot save failed: %w", err)
+		if err := bm.writeSemanticManifest(ts, manifest); err != nil {
+			return nil, fmt.Errorf("backup created but semantic manifest save failed: %w", err)
 		}
 	}
 	if err := bm.prune(ctx, maxBackupsToKeep); err != nil {
@@ -296,7 +296,7 @@ func (bm *backupManager) prune(ctx context.Context, keep int) error {
 				}
 			}
 		}
-		if err := os.Remove(bm.semanticSnapshotPath(ts)); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(bm.semanticManifestPath(ts)); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		if err := os.Remove(bm.backupMetadataPath(ts)); err != nil && !os.IsNotExist(err) {
@@ -341,7 +341,7 @@ func (bm *backupManager) backupPath() string {
 	return filepath.Join(root, backupDirName)
 }
 
-func (bm *backupManager) semanticSnapshotPath(ts string) string {
+func (bm *backupManager) semanticManifestPath(ts string) string {
 	return filepath.Join(bm.backupPath(), "manifest."+ts+".json")
 }
 
@@ -404,25 +404,25 @@ func (bm *backupManager) timestampExists(ts string) (bool, error) {
 	return false, nil
 }
 
-func (bm *backupManager) writeSemanticSnapshot(ts string, snapshot backupSemanticSnapshot) error {
-	path := bm.semanticSnapshotPath(ts)
-	data, err := json.Marshal(snapshot)
+func (bm *backupManager) writeSemanticManifest(ts string, manifest backupSemanticManifest) error {
+	path := bm.semanticManifestPath(ts)
+	data, err := json.Marshal(manifest)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
 }
 
-func (bm *backupManager) loadSemanticSnapshot(ts string) (backupSemanticSnapshot, error) {
-	data, err := os.ReadFile(bm.semanticSnapshotPath(ts))
+func (bm *backupManager) loadSemanticManifest(ts string) (backupSemanticManifest, error) {
+	data, err := os.ReadFile(bm.semanticManifestPath(ts))
 	if err != nil {
-		return backupSemanticSnapshot{}, err
+		return backupSemanticManifest{}, err
 	}
-	var snapshot backupSemanticSnapshot
-	if err := json.Unmarshal(data, &snapshot); err != nil {
-		return backupSemanticSnapshot{}, err
+	var manifest backupSemanticManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return backupSemanticManifest{}, err
 	}
-	return snapshot, nil
+	return manifest, nil
 }
 
 func buildBackupSnapshot(ts string, files []string, meta backupCreateMetadata) backupSnapshot {

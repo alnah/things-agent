@@ -51,7 +51,7 @@ func newBackupExecutorWithMetadata(cfg *runtimeConfig, meta backupCreateMetadata
 	runtime := newRestoreExecutor(cfg)
 	runtime.bundleID = bundleID
 	runtime.app = scriptAppController{runner: runner}
-	runtime.semanticCheck = newScriptSemanticSnapshotter(bundleID, runner).Snapshot
+	runtime.semanticCheck = newScriptSemanticManifestProbe(bundleID, runner).Snapshot
 	runtime.semanticTimeout = restoreFullSemanticTimeout
 	runtime.backups = newBackupManager(cfg.dataDir)
 	return &backupExecutor{

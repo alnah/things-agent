@@ -191,7 +191,7 @@ func TestBackupManagerCreateWritesSemanticManifest(t *testing.T) {
 	}
 
 	bm := newBackupManager(tmp)
-	expected := backupSemanticSnapshot{
+	expected := backupSemanticManifest{
 		ListsCount:    1,
 		ListsHash:     "a",
 		ProjectsCount: 2,
@@ -199,7 +199,7 @@ func TestBackupManagerCreateWritesSemanticManifest(t *testing.T) {
 		TasksCount:    3,
 		TasksHash:     "c",
 	}
-	bm.semanticSnapshot = func(context.Context) (backupSemanticSnapshot, error) {
+	bm.semanticManifest = func(context.Context) (backupSemanticManifest, error) {
 		return expected, nil
 	}
 
@@ -209,9 +209,9 @@ func TestBackupManagerCreateWritesSemanticManifest(t *testing.T) {
 	}
 	ts := inferTimestamp(created[0])
 
-	got, err := bm.loadSemanticSnapshot(ts)
+	got, err := bm.loadSemanticManifest(ts)
 	if err != nil {
-		t.Fatalf("loadSemanticSnapshot failed: %v", err)
+		t.Fatalf("loadSemanticManifest failed: %v", err)
 	}
 	if got.ListsCount != expected.ListsCount || got.ListsHash != expected.ListsHash || got.ProjectsCount != expected.ProjectsCount || got.ProjectsHash != expected.ProjectsHash || got.TasksCount != expected.TasksCount || got.TasksHash != expected.TasksHash || strings.Join(got.TaskRefs, ",") != strings.Join(expected.TaskRefs, ",") {
 		t.Fatalf("unexpected semantic manifest: got %#v want %#v", got, expected)

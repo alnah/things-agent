@@ -7,43 +7,43 @@ import (
 	"strings"
 )
 
-type scriptSemanticSnapshotter struct {
+type scriptSemanticManifestProbe struct {
 	bundleID string
 	runner   scriptRunner
 	script   func(string) string
-	parse    func(string) (backupSemanticSnapshot, error)
+	parse    func(string) (backupSemanticManifest, error)
 }
 
-func newScriptSemanticSnapshotter(bundleID string, runner scriptRunner) scriptSemanticSnapshotter {
-	return scriptSemanticSnapshotter{
+func newScriptSemanticManifestProbe(bundleID string, runner scriptRunner) scriptSemanticManifestProbe {
+	return scriptSemanticManifestProbe{
 		bundleID: bundleID,
 		runner:   runner,
-		script:   scriptSemanticSnapshot,
-		parse:    parseSemanticSnapshot,
+		script:   scriptSemanticManifest,
+		parse:    parseSemanticManifest,
 	}
 }
 
-func newScriptSemanticHealthSnapshotter(bundleID string, runner scriptRunner) scriptSemanticSnapshotter {
-	return scriptSemanticSnapshotter{
+func newScriptSemanticHealthProbe(bundleID string, runner scriptRunner) scriptSemanticManifestProbe {
+	return scriptSemanticManifestProbe{
 		bundleID: bundleID,
 		runner:   runner,
 		script:   scriptSemanticHealth,
-		parse:    parseSemanticHealthSnapshot,
+		parse:    parseSemanticHealthManifest,
 	}
 }
 
-func (s scriptSemanticSnapshotter) Snapshot(ctx context.Context) (backupSemanticSnapshot, error) {
+func (s scriptSemanticManifestProbe) Snapshot(ctx context.Context) (backupSemanticManifest, error) {
 	out, err := s.runner.run(ctx, s.script(s.bundleID))
 	if err != nil {
-		return backupSemanticSnapshot{}, fmt.Errorf("run semantic snapshot: %w", err)
+		return backupSemanticManifest{}, fmt.Errorf("run semantic manifest: %w", err)
 	}
 	return s.parse(out)
 }
 
-func parseSemanticSnapshot(raw string) (backupSemanticSnapshot, error) {
+func parseSemanticManifest(raw string) (backupSemanticManifest, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return backupSemanticSnapshot{}, nil
+		return backupSemanticManifest{}, nil
 	}
 
 	lines := strings.Split(raw, "\n")
@@ -58,33 +58,33 @@ func parseSemanticSnapshot(raw string) (backupSemanticSnapshot, error) {
 		}
 		fields := strings.Split(line, "\t")
 		if len(fields) < 2 {
-			return backupSemanticSnapshot{}, fmt.Errorf("invalid semantic snapshot row %q", line)
+			return backupSemanticManifest{}, fmt.Errorf("invalid semantic manifest row %q", line)
 		}
 		kind := fields[0]
 		switch kind {
 		case "L":
 			if len(fields) != 3 {
-				return backupSemanticSnapshot{}, fmt.Errorf("invalid list semantic row %q", line)
+				return backupSemanticManifest{}, fmt.Errorf("invalid list semantic row %q", line)
 			}
 			payload := strings.Join(fields[1:], "\t")
 			lists = append(lists, payload)
 		case "P":
 			if len(fields) != 4 {
-				return backupSemanticSnapshot{}, fmt.Errorf("invalid project semantic row %q", line)
+				return backupSemanticManifest{}, fmt.Errorf("invalid project semantic row %q", line)
 			}
 			payload := strings.Join(fields[1:], "\t")
 			projects = append(projects, payload)
 		case "T":
 			if len(fields) != 2 {
-				return backupSemanticSnapshot{}, fmt.Errorf("invalid task semantic row %q", line)
+				return backupSemanticManifest{}, fmt.Errorf("invalid task semantic row %q", line)
 			}
 			tasks = append(tasks, fields[1])
 		default:
-			return backupSemanticSnapshot{}, fmt.Errorf("unknown semantic snapshot row kind %q", kind)
+			return backupSemanticManifest{}, fmt.Errorf("unknown semantic manifest row kind %q", kind)
 		}
 	}
 
-	return backupSemanticSnapshot{
+	return backupSemanticManifest{
 		ListsCount:    len(lists),
 		ListsHash:     hashSemanticLines(lists),
 		ProjectsCount: len(projects),
@@ -95,7 +95,7 @@ func parseSemanticSnapshot(raw string) (backupSemanticSnapshot, error) {
 	}, nil
 }
 
-func scriptSemanticSnapshot(bundleID string) string {
+func scriptSemanticManifest(bundleID string) string {
 	return fmt.Sprintf(`tell application id "%s"
   set outLines to {}
   repeat with l in every list
@@ -112,14 +112,14 @@ func scriptSemanticSnapshot(bundleID string) string {
 end tell`, bundleID)
 }
 
-func compareSemanticSnapshots(expected, actual backupSemanticSnapshot) error {
+func compareSemanticManifests(expected, actual backupSemanticManifest) error {
 	switch {
 	case expected.ListsCount != actual.ListsCount || semanticHashesDiffer(expected.ListsHash, actual.ListsHash):
-		return fmt.Errorf("list snapshot mismatch: expected count=%d hash=%s got count=%d hash=%s", expected.ListsCount, expected.ListsHash, actual.ListsCount, actual.ListsHash)
+		return fmt.Errorf("list manifest mismatch: expected count=%d hash=%s got count=%d hash=%s", expected.ListsCount, expected.ListsHash, actual.ListsCount, actual.ListsHash)
 	case expected.ProjectsCount != actual.ProjectsCount || semanticHashesDiffer(expected.ProjectsHash, actual.ProjectsHash):
-		return fmt.Errorf("project snapshot mismatch: expected count=%d hash=%s got count=%d hash=%s", expected.ProjectsCount, expected.ProjectsHash, actual.ProjectsCount, actual.ProjectsHash)
+		return fmt.Errorf("project manifest mismatch: expected count=%d hash=%s got count=%d hash=%s", expected.ProjectsCount, expected.ProjectsHash, actual.ProjectsCount, actual.ProjectsHash)
 	case expected.TasksCount != actual.TasksCount || semanticHashesDiffer(expected.TasksHash, actual.TasksHash):
-		return fmt.Errorf("task snapshot mismatch: expected count=%d hash=%s got count=%d hash=%s%s", expected.TasksCount, expected.TasksHash, actual.TasksCount, actual.TasksHash, semanticTaskDiffSummary(expected.TaskRefs, actual.TaskRefs))
+		return fmt.Errorf("task manifest mismatch: expected count=%d hash=%s got count=%d hash=%s%s", expected.TasksCount, expected.TasksHash, actual.TasksCount, actual.TasksHash, semanticTaskDiffSummary(expected.TaskRefs, actual.TaskRefs))
 	default:
 		return nil
 	}
@@ -131,13 +131,13 @@ func semanticHashesDiffer(expected, actual string) bool {
 	return expected != "" && actual != "" && expected != actual
 }
 
-func parseSemanticHealthSnapshot(raw string) (backupSemanticSnapshot, error) {
+func parseSemanticHealthManifest(raw string) (backupSemanticManifest, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return backupSemanticSnapshot{}, nil
+		return backupSemanticManifest{}, nil
 	}
 	lines := strings.Split(raw, "\n")
-	snapshot := backupSemanticSnapshot{}
+	manifest := backupSemanticManifest{}
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
@@ -145,21 +145,21 @@ func parseSemanticHealthSnapshot(raw string) (backupSemanticSnapshot, error) {
 		}
 		fields := strings.Split(line, "\t")
 		if len(fields) != 2 {
-			return backupSemanticSnapshot{}, fmt.Errorf("invalid semantic health row %q", line)
+			return backupSemanticManifest{}, fmt.Errorf("invalid semantic health row %q", line)
 		}
 		value := parseSemanticCount(fields[1])
 		switch fields[0] {
 		case "L":
-			snapshot.ListsCount = value
+			manifest.ListsCount = value
 		case "P":
-			snapshot.ProjectsCount = value
+			manifest.ProjectsCount = value
 		case "T":
-			snapshot.TasksCount = value
+			manifest.TasksCount = value
 		default:
-			return backupSemanticSnapshot{}, fmt.Errorf("unknown semantic health row kind %q", fields[0])
+			return backupSemanticManifest{}, fmt.Errorf("unknown semantic health row kind %q", fields[0])
 		}
 	}
-	return snapshot, nil
+	return manifest, nil
 }
 
 func parseSemanticCount(raw string) int {

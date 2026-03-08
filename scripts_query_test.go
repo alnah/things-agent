@@ -67,13 +67,13 @@ func TestScriptAllAreas(t *testing.T) {
 	}
 }
 
-func TestScriptSemanticSnapshot(t *testing.T) {
-	got := scriptSemanticSnapshot("bundle.id")
+func TestScriptSemanticManifest(t *testing.T) {
+	got := scriptSemanticManifest("bundle.id")
 	if !strings.Contains(got, `repeat with l in every list`) || !strings.Contains(got, `repeat with p in every project`) || !strings.Contains(got, `repeat with t in every to do`) {
-		t.Fatalf("expected semantic snapshot loops, got: %s", got)
+		t.Fatalf("expected semantic manifest loops, got: %s", got)
 	}
 	if !strings.Contains(got, `"L" & tab`) || !strings.Contains(got, `"P" & tab`) || !strings.Contains(got, `"T" & tab`) {
-		t.Fatalf("expected typed semantic snapshot rows, got: %s", got)
+		t.Fatalf("expected typed semantic manifest rows, got: %s", got)
 	}
 }
 
