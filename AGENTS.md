@@ -136,6 +136,9 @@ The agent should treat this table as the current command surface of the CLI.
 - Official Things documentation exposes heading creation through Shortcuts and the macOS UI, but this CLI does not have a reliable headless heading backend yet.
 - Runtime validation showed that `things:///json` project updates did not create visible headings, private JSON read paths did not expose headings, and `move-task --to-heading` may return `ok` even when nothing changes.
 - For now, create headings manually in Things, then return to the CLI for tasks, tags, notes, dates, and other verified operations.
+- Recurring tasks are not supported by the CLI yet.
+- Current official documentation confirms recurring items exist in Things, but the public AppleScript guide does not expose recurrence controls, and the public URL Scheme docs only mention restrictions on repeating items without documenting a supported create/update recurrence parameter.
+- Until a reliable official automation backend is confirmed, recurring tasks must be created or edited manually in Things.
 - `restore` now follows the official package-swap model from `ThingsData-*/Backups`, instead of replaying the live SQLite trio in place.
 - `restore --network-isolation sandbox-no-network` remains the safest DB restore path, because official Things guidance requires keeping Things offline for the first launch after restore.
 - `restore` clears the local sync metadata table before the first relaunch so the restored package is not immediately re-trashed by pending sync state.

@@ -282,6 +282,9 @@ Reordering notes:
 - Official Things documentation exposes heading creation through Shortcuts and the macOS UI, but this CLI does not have a reliable headless heading backend yet.
 - Runtime validation showed that `things:///json` project updates did not create visible headings, private JSON read paths did not expose headings, and `move-task --to-heading` or `--to-heading-id` may return `ok` even when nothing changes.
 - For now, create headings manually in Things, then return to the CLI for tasks, tags, notes, dates, and other verified operations.
+- Recurring tasks are not supported by the CLI yet.
+- Current official documentation confirms recurring items exist in Things, but the public AppleScript guide does not expose recurrence controls, and the public URL Scheme docs only mention restrictions on repeating items without documenting a supported create/update recurrence parameter.
+- Until a reliable official automation backend is confirmed, recurring tasks must be created or edited manually in Things.
 - No stable backend is available yet for checklist-item reorder or sidebar area reorder.
 - `restore` now follows the official package-swap model in `ThingsData-*/Backups` instead of replaying the live WAL/SHM trio.
 - `restore --network-isolation sandbox-no-network` remains the safest DB restore path, because official Things guidance requires keeping Things offline on the first launch after restore.
