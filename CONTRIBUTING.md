@@ -13,18 +13,18 @@ Thank you for contributing to `things-agent`.
 Use the provided GitHub Issue form.
 
 Reports without reproduction steps, impact, and remediation advice are not prioritized.
-Given the volume of AI-generated scanner findings, we prioritize vetted reports from contributors who understand and demonstrate the issue.
+Given the volume of AI-generated scanner findings, I prioritize vetted reports from contributors who understand and demonstrate the issue.
 
 ### Required in reports
 
 - Title
-- Severity Assessment
+- Severity assessment
 - Impact
-- Affected Component
-- Technical Reproduction
-- Demonstrated Impact
+- Affected component
+- Technical reproduction
+- Demonstrated impact
 - Environment
-- Remediation Advice
+- Remediation advice
 
 ## Pull requests
 

@@ -23,7 +23,7 @@ body:
   - type: dropdown
     id: severity
     attributes:
-      label: Severity Assessment
+      label: Severity assessment
       options:
         - critical
         - high
@@ -45,7 +45,7 @@ body:
   - type: input
     id: affected_component
     attributes:
-      label: Affected Component
+      label: Affected component
       description: CLI command, module, file path, workflow, etc.
       placeholder: cmd_url_task.go / url update
     validations:
@@ -54,7 +54,7 @@ body:
   - type: textarea
     id: reproduction
     attributes:
-      label: Technical Reproduction
+      label: Technical reproduction
       description: Step-by-step deterministic reproduction, including commands and inputs.
       placeholder: |
         1. Run ...
@@ -66,7 +66,7 @@ body:
   - type: textarea
     id: demonstrated_impact
     attributes:
-      label: Demonstrated Impact
+      label: Demonstrated impact
       description: Concrete proof and observable outcome.
       placeholder: Logs, screenshots, before/after state, PoC output.
     validations:
@@ -84,7 +84,7 @@ body:
   - type: textarea
     id: remediation
     attributes:
-      label: Remediation Advice
+      label: Remediation advice
       description: Proposed mitigation/fix and rationale.
       placeholder: Validate input X, add guard Y, add test Z.
     validations:

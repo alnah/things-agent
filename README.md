@@ -6,6 +6,8 @@
 [![Coverage](https://codecov.io/gh/alnah/things-agent/graph/badge.svg)](https://codecov.io/gh/alnah/things-agent)
 [![License](https://img.shields.io/github/license/alnah/things-agent)](./LICENSE)
 
+![things-agent opportunity map](./assets/banner.png)
+
 > AI-first operational bridge for Things 3 on macOS. It gives an AI agent a constrained CLI over Things' existing automation surfaces: AppleScript, the official Things URL Scheme, and a narrowly scoped internal SQLite restore harness used only for restore workflows.
 
 Independent project. Not affiliated with Cultured Code.
@@ -32,6 +34,19 @@ Internal SQLite work is reserved for restore only.
 - creates, edits, moves, completes, and deletes areas, projects, tasks, checklist items, and child tasks
 - adds backup, restore, preflight, and verification flows for higher-risk operations
 - keeps direct database access out of normal agent-authored operations
+
+## Opportunity
+
+Things already exposes solid official local automation surfaces through [AppleScript](https://culturedcode.com/things/download/Things3AppleScriptGuide.pdf), the [Things URL Scheme](https://culturedcode.com/things/support/articles/2803573/), and [Apple Shortcuts](https://culturedcode.com/things/help/shortcuts-actions/). This project explores what becomes possible when those surfaces are wrapped in a stricter operational layer for AI agents.
+
+The idea is not to criticize Things or bypass the app's model.
+The opportunity is to show that:
+
+- Things is already a strong local automation base for agent-driven workflows
+- a constrained CLI can make those workflows more explicit, verifiable, and safer to operate
+- if there were ever an official CLI with full app coverage, it could become a clean foundation for an MCP server or other agent-facing runtimes
+
+That would keep the center of gravity where it belongs: on official app behavior, official capabilities, and a safer contract between human intent, automation, and Things itself.
 
 ## Project status
 
@@ -157,7 +172,7 @@ When in doubt:
 - Runtime validation showed that `things:///json` project updates did not create visible headings, private JSON read paths did not expose headings, and `move-task --to-heading` or `--to-heading-id` may return `ok` even when nothing changes.
 - Create headings in Things, then return to the CLI for everything else.
 
-### Recurring Tasks
+### Recurring tasks
 
 - Recurring tasks are not automated yet.
 - Public AppleScript and URL Scheme docs do not expose a reliable recurrence create/update path.
@@ -235,7 +250,7 @@ things-agent tasks --list "À classer"
 
 Use this project at your own risk.
 
-### Agent Risk Model
+### Agent risk model
 
 - To be useful, AI agents often need broad system permissions.
 - Agents can bypass expectations or instructions if they are sufficiently capable.
@@ -251,7 +266,7 @@ Use this project at your own risk.
 - `AGENTS.md` forbids direct SQLite access.
 - Any bypass of CLI constraints requires an explicit user decision.
 
-### Auth Token Handling
+### Auth token handling
 
 Do not expose your Things auth token to your AI provider unless strictly necessary.
 Prefer resolving it locally from a secret store at runtime instead of hardcoding it in shell history, scripts, or repo files.
