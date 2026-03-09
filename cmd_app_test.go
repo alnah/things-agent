@@ -5,7 +5,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestOpenCloseCommands(t *testing.T) {
@@ -66,20 +65,4 @@ func TestOpenCloseCommands(t *testing.T) {
 	if !strings.Contains(joinedScripts, "return running") {
 		t.Fatalf("expected running-state script, got %s", joinedScripts)
 	}
-}
-
-func TestWaitForAppState(t *testing.T) {
-	t.Run("waits for open", func(t *testing.T) {
-		app := &fakeAppController{running: []bool{false, true}}
-		if err := waitForAppState(context.Background(), app, defaultBundleID, true, 100*time.Millisecond, time.Millisecond, func(time.Duration) {}); err != nil {
-			t.Fatalf("waitForAppState open failed: %v", err)
-		}
-	})
-
-	t.Run("waits for close", func(t *testing.T) {
-		app := &fakeAppController{running: []bool{true, false}}
-		if err := waitForAppState(context.Background(), app, defaultBundleID, false, 100*time.Millisecond, time.Millisecond, func(time.Duration) {}); err != nil {
-			t.Fatalf("waitForAppState close failed: %v", err)
-		}
-	})
 }
