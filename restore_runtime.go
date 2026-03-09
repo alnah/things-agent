@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	thingslib "github.com/alnah/things-agent/internal/things"
 )
 
 type appController interface {
@@ -214,21 +216,13 @@ func (r *restoreExecutor) quiesce(ctx context.Context, wasRunning bool) error {
 }
 
 func scriptAppRunning(bundleID string) string {
-	return fmt.Sprintf(`tell application id "%s"
-  return running
-end tell`, escapeApple(bundleID))
+	return thingslib.ScriptAppRunning(bundleID)
 }
 
 func scriptQuitApp(bundleID string) string {
-	return fmt.Sprintf(`tell application id "%s"
-  quit
-end tell
-return "ok"`, escapeApple(bundleID))
+	return thingslib.ScriptQuitApp(bundleID)
 }
 
 func scriptActivateApp(bundleID string) string {
-	return fmt.Sprintf(`tell application id "%s"
-  activate
-end tell
-return "ok"`, escapeApple(bundleID))
+	return thingslib.ScriptActivateApp(bundleID)
 }
