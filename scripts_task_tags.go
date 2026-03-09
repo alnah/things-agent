@@ -1,71 +1,15 @@
 package main
 
-import (
-	"fmt"
-	"strings"
-)
+import thingslib "github.com/alnah/things-agent/internal/things"
 
 func scriptSetTaskTags(bundleID, taskName, taskID string, tags []string) string {
-	tagText := strings.Join(tags, ", ")
-	return fmt.Sprintf(`tell application id "%s"
-%s  set tag names of t to "%s"
-  return id of t
-end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), escapeApple(tagText))
+	return thingslib.ScriptSetTaskTags(bundleID, taskName, taskID, tags)
 }
 
 func scriptAddTaskTags(bundleID, taskName, taskID string, tags []string) string {
-	return fmt.Sprintf(`tell application id "%s"
-%s  set existingTags to {}
-  try
-    set existingTags to tag names of t
-  end try
-  if existingTags is missing value then
-    set existingTags to {}
-  else if class of existingTags is text then
-    if (existingTags as string) is "" then
-      set existingTags to {}
-    else
-      set AppleScript's text item delimiters to ", "
-      set existingTags to text items of (existingTags as string)
-      set AppleScript's text item delimiters to ""
-    end if
-  end if
-  repeat with aTag in %s
-    set normalizedTag to aTag as string
-    if not (normalizedTag is in existingTags) then
-      set end of existingTags to normalizedTag
-    end if
-  end repeat
-  set tag names of t to existingTags
-  return id of t
-end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), scriptListLiteral(tags))
+	return thingslib.ScriptAddTaskTags(bundleID, taskName, taskID, tags)
 }
 
 func scriptRemoveTaskTags(bundleID, taskName, taskID string, tags []string) string {
-	return fmt.Sprintf(`tell application id "%s"
-%s  set existingTags to {}
-  try
-    set existingTags to tag names of t
-  end try
-  if existingTags is missing value then
-    set existingTags to {}
-  else if class of existingTags is text then
-    if (existingTags as string) is "" then
-      set existingTags to {}
-    else
-      set AppleScript's text item delimiters to ", "
-      set existingTags to text items of (existingTags as string)
-      set AppleScript's text item delimiters to ""
-    end if
-  end if
-  set filteredTags to {}
-  repeat with aTag in existingTags
-    set normalizedTag to aTag as string
-    if not (normalizedTag is in %s) then
-      set end of filteredTags to normalizedTag
-    end if
-  end repeat
-  set tag names of t to filteredTags
-  return id of t
-end tell`, bundleID, scriptResolveTaskRef(taskName, taskID), scriptListLiteral(tags))
+	return thingslib.ScriptRemoveTaskTags(bundleID, taskName, taskID, tags)
 }

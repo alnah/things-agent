@@ -54,3 +54,14 @@ func NormalizeChecklistInput(raw string) string {
 	}
 	return strings.Join(items, "\n")
 }
+
+func ScriptListLiteral(values []string) string {
+	if len(values) == 0 {
+		return "{}"
+	}
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		items = append(items, `"`+EscapeApple(value)+`"`)
+	}
+	return "{" + strings.Join(items, ", ") + "}"
+}
