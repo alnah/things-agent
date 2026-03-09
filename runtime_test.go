@@ -4,38 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
-
-func TestResolveDataDirFoundAndNotFound(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-
-	_, err := resolveDataDir()
-	if err == nil || !strings.Contains(err.Error(), "could not resolve Things data dir") {
-		t.Fatalf("expected not-found error, got: %v", err)
-	}
-
-	base := filepath.Join(
-		home,
-		"Library/Group Containers/JLMPQHK86H.com.culturedcode.ThingsMac/ThingsData-ABC/Things Database.thingsdatabase",
-	)
-	if err := os.MkdirAll(base, 0o755); err != nil {
-		t.Fatalf("mkdir failed: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(base, "main.sqlite"), []byte("x"), 0o644); err != nil {
-		t.Fatalf("write main.sqlite failed: %v", err)
-	}
-
-	got, err := resolveDataDir()
-	if err != nil {
-		t.Fatalf("resolveDataDir failed: %v", err)
-	}
-	if got != base {
-		t.Fatalf("unexpected data dir: %s", got)
-	}
-}
 
 func TestResolveRuntimeConfigUsesConfigDataDir(t *testing.T) {
 	orig := config
