@@ -85,7 +85,7 @@ go install github.com/alnah/things-agent@latest
 Install the unstable version (latest `main`):
 
 ```bash
-go install github.com/alnah/things-agent@main
+go install github.com/alnah/things-agent@latest
 ```
 
 Version behavior:
