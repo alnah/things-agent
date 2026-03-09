@@ -6,21 +6,39 @@
 [![Coverage](https://codecov.io/gh/alnah/things-agent/graph/badge.svg)](https://codecov.io/gh/alnah/things-agent)
 [![License](https://img.shields.io/github/license/alnah/things-agent)](./LICENSE)
 
-Go CLI to drive Things (macOS) through AppleScript and the Things URL Scheme, built with `cobra`, with a narrowly scoped internal SQLite step used only for restore.
+> AI-first operational bridge for Things 3 on macOS. It gives an AI agent a constrained CLI over Things' existing automation surfaces: AppleScript, the official Things URL Scheme, and a narrowly scoped internal SQLite restore harness used only for restore workflows.
+
+Independent project. Not affiliated with Cultured Code.
 
 Documentation split:
 
 - `README.md`: user-facing guide for the human who asks an AI coding agent such as Codex, Claude Code, Open Code, or similar tools to manage Things through the CLI.
 - [`AGENTS.md`](./AGENTS.md): operator contract for the AI agent that actually runs the CLI.
 
+## Why this exists
+
+Things already exposes useful automation surfaces, but AI agents benefit from a narrower operational layer with explicit commands, machine-readable outputs, and safer recovery workflows than ad hoc scripts.
+
+This project is built for the practical path:
+
+`Human intent -> AI agent -> things-agent CLI -> Things 3`
+
+Normal reads and writes stay on top of AppleScript and the official Things URL Scheme.
+Internal SQLite work is reserved for restore only.
+
+## What it does
+
+- reads Things state in text or JSON forms that an AI agent can use reliably
+- creates, edits, moves, completes, and deletes areas, projects, tasks, checklist items, and child tasks
+- adds backup, restore, preflight, and verification flows for higher-risk operations
+- keeps direct database access out of normal agent-authored operations
+
 ## Project status
 
-This repository started as a fast prototype built in one day with Codex (`gpt-5.3-codex-spark xhigh`), then used `gpt-5.4 high` to build out the codebase in Go with AppleScript and the Things URL Scheme.
-
-- It is primarily a proof of concept, not a fully hardened product yet.
-- It works well with voice workflows (for example with MacWhisper).
-- It is responsive and already useful in practice using spark.
-- It still needs cleanup, more refactoring, stronger safety checks, and broader tests.
+- This project is primarily meant to be consumed by an AI agent, not used as a polished human-first CLI.
+- It is already useful in practice for organizing Things through AI, including voice-driven workflows.
+- It includes safety rails, backup/restore workflows, and verification steps, but it is not fully hardened.
+- The user still takes real risk and will likely need to grant system permissions for the setup to work reliably.
 
 ## Installation
 
@@ -55,6 +73,29 @@ Some native checklist operations (URL scheme `update`) require a Things auth tok
 Things uses both user areas and built-in lists (`Inbox`, `Today`, `Logbook`, etc.); this CLI uses `area` for the area entity and keeps `list` only for generic Things list filters and official URL parameters.
 For token, permissions, and list-locale errors, see [Troubleshooting](#troubleshooting).
 
+## Interaction model
+
+The primary model is:
+
+`Human > AI agent > things-agent CLI > Things 3`
+
+This repository is not trying to turn Things into a general-purpose shell app for direct human use.
+The main goal is to give an AI agent a constrained operational bridge to read and change Things state with clearer semantics and some safety controls.
+
+In practice, this means:
+
+- the human expresses intent in natural language
+- the AI agent translates that intent into `things-agent` commands
+- the CLI uses AppleScript and the Things URL Scheme to operate Things 3
+- backup, restore, and verification flows try to reduce risk, but do not remove it
+
+## Design constraints
+
+- normal operations use Things automation surfaces rather than direct database access
+- restore is the only place where the project uses a narrowly scoped internal SQLite step
+- the CLI is designed to be explicit enough for an AI agent to execute and verify safely
+- permissions, local machine policy, and user trust still matter
+
 ## Using with Codex, Claude Code, Open Code, etc.
 
 Use this checklist before asking an AI agent to manage Things for you:
@@ -78,18 +119,21 @@ things-agent version
 things-agent --help
 ```
 
+You usually do not need to drive the CLI manually beyond setup, debugging, or recovery.
+The normal path is to let the AI agent read `AGENTS.md`, inspect `things-agent --help`, and then operate Things through the CLI.
+
 ## Domain glossary
 
 Use these terms when talking to the agent. They match the CLI's high-level model from `things-agent --help`.
 
-| Term | Meaning | Language alternatives |
-| --- | --- | --- |
-| `area` | A user-managed Things area. High-level CRUD and move commands use `area`. | `domaine`, `aire`, `área`, `Bereich` |
-| `list` | A generic Things list name used for read filters and the official URL Scheme. This includes built-in lists such as `Inbox`, `Today`, `Logbook`, and `Archive`, plus area names where the Things API expects a generic list selector. | `liste`, `lista`, `Liste` |
-| `project` | A Things project. | `projet`, `proyecto`, `projeto`, `Projekt`, `progetto` |
-| `task` | A top-level to-do. | `tâche`, `tarea`, `tarefa`, `Aufgabe`, `attività` |
-| `checklist item` | A lightweight native checklist line inside a task. | `élément de checklist`, `elemento de checklist`, `item de checklist`, `Checklistenpunkt` |
-| `child task` | A structured child to-do under a project. | `sous-tâche`, `subtarea`, `subtarefa`, `Unteraufgabe`, `sottoattività` |
+| Term             | Meaning                                                                                                                                                                                                                              | Language alternatives                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `area`           | A user-managed Things area. High-level CRUD and move commands use `area`.                                                                                                                                                            | `domaine`, `aire`, `área`, `Bereich`                                                     |
+| `list`           | A generic Things list name used for read filters and the official URL Scheme. This includes built-in lists such as `Inbox`, `Today`, `Logbook`, and `Archive`, plus area names where the Things API expects a generic list selector. | `liste`, `lista`, `Liste`                                                                |
+| `project`        | A Things project.                                                                                                                                                                                                                    | `projet`, `proyecto`, `projeto`, `Projekt`, `progetto`                                   |
+| `task`           | A top-level to-do.                                                                                                                                                                                                                   | `tâche`, `tarea`, `tarefa`, `Aufgabe`, `attività`                                        |
+| `checklist item` | A lightweight native checklist line inside a task.                                                                                                                                                                                   | `élément de checklist`, `elemento de checklist`, `item de checklist`, `Checklistenpunkt` |
+| `child task`     | A structured child to-do under a project.                                                                                                                                                                                            | `sous-tâche`, `subtarea`, `subtarefa`, `Unteraufgabe`, `sottoattività`                   |
 
 When in doubt:
 
@@ -137,7 +181,7 @@ Each snapshot also gets a small JSON index file (`timestamp`, `kind`, `created_a
 
 ## Common workflows
 
-Ask the agent in natural language, for example:
+Ask the AI agent in natural language, for example:
 
 - "Show me what is in Today and Inbox."
 - "Create a project in area Codebases and add three tasks."
@@ -152,8 +196,9 @@ Ask the agent in natural language, for example:
 If AppleScript calls fail or the CLI cannot control Things, validate the environment first:
 
 ```bash
-osascript -e 'tell application "Things3" to get name'
+osascript -e 'tell application id "com.culturedcode.ThingsMac" to get name'
 things-agent version
+things-agent lists
 ```
 
 Then re-check macOS privacy settings for your terminal/agent app:
@@ -171,7 +216,7 @@ If you see missing or invalid token errors:
 
 ```bash
 export THINGS_AUTH_TOKEN="<your-things-token>"
-things-agent add-task --name "Token check" --checklist-items "one, two"
+things-agent add-task --name "Token check" --area "Inbox" --checklist-items "one, two"
 ```
 
 You can also pass `--auth-token` explicitly per command.
@@ -196,6 +241,7 @@ Use this project at your own risk.
 - Agents can bypass expectations or instructions if they are sufficiently capable.
 - This repository includes safety rails, but it does not provide a full safety guarantee for end users.
 - You remain fully responsible for what the agent executes on your machine.
+- The user may need to grant Automation, filesystem, and related permissions before the bridge works reliably.
 
 ### Safety personal choice
 
