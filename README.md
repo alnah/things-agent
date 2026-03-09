@@ -6,9 +6,9 @@
 [![Coverage](https://codecov.io/gh/alnah/things-agent/graph/badge.svg)](https://codecov.io/gh/alnah/things-agent)
 [![License](https://img.shields.io/github/license/alnah/things-agent)](./LICENSE)
 
-![things-agent opportunity map](./assets/banner.png)
-
 > AI-first operational bridge for Things 3 on macOS. It gives an AI agent a constrained CLI over Things' existing automation surfaces: AppleScript, the official Things URL Scheme, and a narrowly scoped internal SQLite restore harness used only for restore workflows.
+
+![things-agent opportunity map](./assets/banner.png)
 
 Independent project. Not affiliated with Cultured Code.
 
