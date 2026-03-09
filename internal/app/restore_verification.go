@@ -96,29 +96,30 @@ func liveDBBaseName(snapshotPath string) string {
 }
 
 func filesEqual(left, right string) (bool, error) {
-	leftInfo, err := os.Stat(left)
+	lf, err := openRootedFileRead(left)
 	if err != nil {
 		return false, err
 	}
-	rightInfo, err := os.Stat(right)
+	defer lf.Close()
+
+	leftInfo, err := lf.Stat()
+	if err != nil {
+		return false, err
+	}
+
+	rf, err := openRootedFileRead(right)
+	if err != nil {
+		return false, err
+	}
+	defer rf.Close()
+
+	rightInfo, err := rf.Stat()
 	if err != nil {
 		return false, err
 	}
 	if leftInfo.Size() != rightInfo.Size() {
 		return false, nil
 	}
-
-	lf, err := os.Open(left)
-	if err != nil {
-		return false, err
-	}
-	defer lf.Close()
-
-	rf, err := os.Open(right)
-	if err != nil {
-		return false, err
-	}
-	defer rf.Close()
 
 	leftBuf := make([]byte, 32*1024)
 	rightBuf := make([]byte, 32*1024)

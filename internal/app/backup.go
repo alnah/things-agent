@@ -91,7 +91,7 @@ func (bm *backupManager) CreateWithMetadata(ctx context.Context, meta backupCrea
 	var created []string
 	if bm.packageMode() {
 		dstDir := bm.snapshotDir(ts)
-		if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		if err := os.MkdirAll(dstDir, backupDirPerm); err != nil {
 			return nil, err
 		}
 		src := bm.livePrimaryDBPath()
@@ -351,7 +351,7 @@ func (bm *backupManager) backupMetadataPath(ts string) string {
 
 func (bm *backupManager) ensureBackupDir() (string, error) {
 	path := bm.backupPath()
-	if err := os.MkdirAll(path, 0o755); err != nil {
+	if err := os.MkdirAll(path, backupDirPerm); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -410,7 +410,7 @@ func (bm *backupManager) writeSemanticManifest(ts string, manifest backupSemanti
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, backupFilePerm)
 }
 
 func (bm *backupManager) loadSemanticManifest(ts string) (backupSemanticManifest, error) {
@@ -484,7 +484,7 @@ func (bm *backupManager) writeBackupMetadata(snapshot backupSnapshot) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(bm.backupMetadataPath(snapshot.Timestamp), data, 0o644)
+	return os.WriteFile(bm.backupMetadataPath(snapshot.Timestamp), data, backupFilePerm)
 }
 
 func (bm *backupManager) loadBackupMetadata(ts string) (backupSnapshot, error) {
@@ -626,7 +626,7 @@ func copyDir(src, dst string) error {
 		if info.IsDir() {
 			return os.MkdirAll(target, info.Mode())
 		}
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), backupDirPerm); err != nil {
 			return err
 		}
 		return copyFile(path, target)
@@ -634,13 +634,13 @@ func copyDir(src, dst string) error {
 }
 
 func copyFile(src, dst string) error {
-	in, err := os.Open(src)
+	in, err := openRootedFileRead(src)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
 
-	out, err := os.Create(dst)
+	out, err := openRootedFileWrite(dst, backupFilePerm)
 	if err != nil {
 		return err
 	}
