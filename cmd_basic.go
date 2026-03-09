@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	commandlib "github.com/alnah/things-agent/internal/command"
 	thingslib "github.com/alnah/things-agent/internal/things"
 	"github.com/spf13/cobra"
 )
@@ -234,89 +235,50 @@ func newSessionStartCmd() *cobra.Command {
 }
 
 func newListsCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "lists",
-		Short: "List Things areas and built-in lists",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
-				return runResult(ctx, cfg, scriptAllLists(cfg.bundleID))
-			})
-		},
-	}
+	return commandlib.NewListsCmd(func(cmd *cobra.Command, args []string) error {
+		return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+			return runResult(ctx, cfg, scriptAllLists(cfg.bundleID))
+		})
+	})
 }
 
 func newAreasCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "areas",
-		Short: "List Things areas",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
-				return runResult(ctx, cfg, scriptAllAreas(cfg.bundleID))
-			})
-		},
-	}
+	return commandlib.NewAreasCmd(func(cmd *cobra.Command, args []string) error {
+		return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+			return runResult(ctx, cfg, scriptAllAreas(cfg.bundleID))
+		})
+	})
 }
 
 func newProjectsCmd() *cobra.Command {
-	var jsonOutput bool
-	cmd := &cobra.Command{
-		Use:   "projects",
-		Short: "List projects",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
-				if jsonOutput {
-					return runJSONResult(ctx, cfg, scriptAllProjectsStructured(cfg.bundleID), parseProjectListJSON)
-				}
-				return runResult(ctx, cfg, scriptAllProjects(cfg.bundleID))
-			})
-		},
-	}
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
-	return cmd
+	return commandlib.NewProjectsCmd(func(cmd *cobra.Command, args []string, jsonOutput bool) error {
+		return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+			if jsonOutput {
+				return runJSONResult(ctx, cfg, scriptAllProjectsStructured(cfg.bundleID), parseProjectListJSON)
+			}
+			return runResult(ctx, cfg, scriptAllProjects(cfg.bundleID))
+		})
+	})
 }
 
 func newTasksCmd() *cobra.Command {
-	var listName, query string
-	var jsonOutput bool
-	cmd := &cobra.Command{
-		Use:   "tasks",
-		Short: "List tasks (optionally filtered)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
-				if jsonOutput {
-					return runJSONResult(ctx, cfg, scriptTasksStructured(cfg.bundleID, listName, query), parseTaskListJSON)
-				}
-				return runResult(ctx, cfg, scriptTasks(cfg.bundleID, listName, query))
-			})
-		},
-	}
-	cmd.Flags().StringVar(&listName, "list", "", "Limit to a Things list or area")
-	cmd.Flags().StringVar(&query, "query", "", "Filter by name / notes")
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
-	return cmd
+	return commandlib.NewTasksCmd(func(cmd *cobra.Command, args []string, listName, query string, jsonOutput bool) error {
+		return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+			if jsonOutput {
+				return runJSONResult(ctx, cfg, scriptTasksStructured(cfg.bundleID, listName, query), parseTaskListJSON)
+			}
+			return runResult(ctx, cfg, scriptTasks(cfg.bundleID, listName, query))
+		})
+	})
 }
 
 func newSearchCmd() *cobra.Command {
-	var listName, query string
-	var jsonOutput bool
-	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search tasks",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(query) == "" {
-				return errors.New("--query is required")
+	return commandlib.NewSearchCmd(func(cmd *cobra.Command, args []string, listName, query string, jsonOutput bool) error {
+		return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
+			if jsonOutput {
+				return runJSONResult(ctx, cfg, scriptTasksStructured(cfg.bundleID, listName, query), parseTaskListJSON)
 			}
-			return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {
-				if jsonOutput {
-					return runJSONResult(ctx, cfg, scriptTasksStructured(cfg.bundleID, listName, query), parseTaskListJSON)
-				}
-				return runResult(ctx, cfg, scriptSearch(cfg.bundleID, listName, query))
-			})
-		},
-	}
-	cmd.Flags().StringVar(&query, "query", "", "Search text")
-	cmd.Flags().StringVar(&listName, "list", "", "Limit to a Things list or area")
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output structured JSON")
-	_ = cmd.MarkFlagRequired("query")
-	return cmd
+			return runResult(ctx, cfg, scriptSearch(cfg.bundleID, listName, query))
+		})
+	})
 }
