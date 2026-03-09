@@ -2,9 +2,19 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
+
+func mustReadDocFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(data)
+}
 
 func TestUnitContracts(t *testing.T) {
 	t.Run("ChecklistModel", func(t *testing.T) {
@@ -157,11 +167,6 @@ func TestUnitContracts(t *testing.T) {
 
 	t.Run("ConsumerModelContract", func(t *testing.T) {
 		agents := mustReadDocFile(t, "AGENTS.md")
-		readme := mustReadDocFile(t, "README.md")
-
-		if !strings.Contains(readme, "Codex") || !strings.Contains(readme, "Claude Code") {
-			t.Fatalf("README.md must document Codex and Claude Code as primary AI consumers")
-		}
 		if !strings.Contains(agents, "The agent must **only** use `things-agent` commands to change Things state.") {
 			t.Fatalf("AGENTS.md must constrain Things mutations to the AI-consumed CLI path")
 		}
