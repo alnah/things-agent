@@ -7,14 +7,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func resolveParentSelector(parentName, parentID string) (string, string, error) {
-	return commandlib.ResolveParentSelector(parentName, parentID)
-}
-
-func resolveChildTaskMutationSelector(parentName, parentID, childTaskName, childTaskID string, childTaskIndex int) (string, string, string, int, error) {
-	return commandlib.ResolveChildTaskMutationSelector(parentName, parentID, childTaskName, childTaskID, childTaskIndex)
-}
-
 func newAddChecklistItemCmd() *cobra.Command {
 	return commandlib.NewAddChecklistItemCmd(func(cmd *cobra.Command, args []string, taskName, taskID, itemName string) error {
 		return withWriteBackup(cmd, false, func(ctx context.Context, cfg *runtimeConfig) error {

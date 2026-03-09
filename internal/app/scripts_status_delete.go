@@ -14,10 +14,6 @@ func scriptDeleteProjectRef(bundleID, name, id string) string {
 	return thingslib.ScriptDeleteProjectRef(bundleID, name, id)
 }
 
-func scriptCompleteTask(bundleID, name, id string, done bool) string {
-	return thingslib.ScriptCompleteTask(bundleID, name, id, done)
-}
-
 func scriptSetTaskCompletionByRef(bundleID, name, id string, done bool, authToken string) string {
 	return thingslib.ScriptSetTaskCompletionByRef(bundleID, name, id, done, authToken)
 }

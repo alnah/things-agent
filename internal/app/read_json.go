@@ -10,7 +10,6 @@ import (
 )
 
 type readItem = thingslib.ReadItem
-type readChildTaskItem = thingslib.ReadChildTask
 
 func runJSONResult(ctx context.Context, cfg *runtimeConfig, script string, parse func(string) (any, error)) error {
 	out, err := cfg.runner.run(ctx, script)
@@ -28,10 +27,6 @@ func writeJSON(payload any) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetEscapeHTML(false)
 	return enc.Encode(payload)
-}
-
-func parseStructuredRows(raw string, expectedFields int) ([][]string, error) {
-	return thingslib.ParseStructuredRows(raw, expectedFields)
 }
 
 func parseTaskListJSON(raw string) (any, error) {

@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const thingsAppName = "Things"
+
 type AppController interface {
 	IsRunning(ctx context.Context, bundleID string) (bool, error)
 	Quit(ctx context.Context, bundleID string) error
@@ -55,9 +57,9 @@ func WaitForAppState(ctx context.Context, app AppController, bundleID string, wa
 		}
 		if time.Now().After(deadline) {
 			if wantRunning {
-				return fmt.Errorf("Things did not open within %s", timeout)
+				return fmt.Errorf("%s did not open within %s", thingsAppName, timeout)
 			}
-			return fmt.Errorf("Things did not close within %s", timeout)
+			return fmt.Errorf("%s did not close within %s", thingsAppName, timeout)
 		}
 		sleep(poll)
 	}

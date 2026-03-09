@@ -27,7 +27,3 @@ func newRunner(bundleID string) *runner {
 func (r *runner) run(ctx context.Context, script string) (string, error) {
 	return r.inner.Run(ctx, script)
 }
-
-func (r *runner) ensureReachable(ctx context.Context) error {
-	return r.inner.EnsureReachable(ctx)
-}

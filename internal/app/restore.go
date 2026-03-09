@@ -378,7 +378,7 @@ func (r *restoreExecutor) Verify(ctx context.Context, timestamp string) (restore
 	if err != nil {
 		return restoreVerificationReport{Timestamp: resolvedTS}, err
 	}
-	report, err := buildSnapshotVerification(r.backups.dataDir, targetFiles)
+	report, _ := buildSnapshotVerification(r.backups.dataDir, targetFiles)
 	report.Timestamp = resolvedTS
 	return report, verificationError(report)
 }

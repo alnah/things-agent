@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const thingsAppName = "Things"
+
 type Runner struct {
 	BundleID string
 }
@@ -31,7 +33,7 @@ func (r *Runner) EnsureReachable(ctx context.Context) error {
   return name
 end tell`, r.BundleID)
 	if _, err := r.Run(ctx, script); err != nil {
-		return fmt.Errorf("Things app not found (%s): %w", r.BundleID, err)
+		return fmt.Errorf("%s app not found (%s): %w", thingsAppName, r.BundleID, err)
 	}
 	return nil
 }

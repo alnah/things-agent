@@ -28,10 +28,6 @@ func resolveEntitySelector(name, id string) (string, string, error) {
 	return commandlib.ResolveEntitySelector(name, id)
 }
 
-func resolveTaskParentSelector(taskName, taskID string) (string, string, error) {
-	return commandlib.ResolveTaskParentSelector(taskName, taskID)
-}
-
 func newShowTaskCmd() *cobra.Command {
 	return commandlib.NewShowTaskCmd(func(cmd *cobra.Command, args []string, name, id string, withChildTasks, jsonOutput bool) error {
 		return withRuntimeConfig(cmd, func(ctx context.Context, cfg *runtimeConfig) error {

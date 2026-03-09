@@ -2,10 +2,6 @@ package app
 
 import thingslib "github.com/alnah/things-agent/internal/things"
 
-func scriptResolveAreaRef(areaName, areaID string) string {
-	return thingslib.ScriptResolveAreaRef(areaName, areaID)
-}
-
 func scriptResolveTaskID(bundleID, taskName string) string {
 	return thingslib.ScriptResolveTaskID(bundleID, taskName)
 }

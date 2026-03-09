@@ -10,10 +10,6 @@ func scriptAddChildTask(bundleID, parentName, parentID, childTaskName, notes str
 	return thingslib.ScriptAddChildTask(bundleID, parentName, parentID, childTaskName, notes)
 }
 
-func scriptFindChildTask(bundleID, parentName, parentID, childTaskName, childTaskID string, index int) string {
-	return thingslib.ScriptFindChildTask(bundleID, parentName, parentID, childTaskName, childTaskID, index)
-}
-
 func scriptShowTask(bundleID, taskName, taskID string, withChildTasks bool) string {
 	return thingslib.ScriptShowTask(bundleID, taskName, taskID, withChildTasks)
 }

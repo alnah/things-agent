@@ -14,22 +14,6 @@ func scriptResolveItemRef(taskName, taskID string) string {
 	return thingslib.ScriptResolveItemRef(taskName, taskID)
 }
 
-func scriptResolveTaskRef(taskName, taskID string) string {
-	return thingslib.ScriptResolveTaskRef(taskName, taskID)
-}
-
-func scriptResolveTaskByName(taskName string) string {
-	return thingslib.ScriptResolveTaskByName(taskName)
-}
-
-func scriptResolveTaskByID(taskID string) string {
-	return thingslib.ScriptResolveTaskByID(taskID)
-}
-
-func scriptResolveProjectRef(projectName, projectID string) string {
-	return thingslib.ScriptResolveProjectRef(projectName, projectID)
-}
-
 func scriptAllProjects(bundleID string) string {
 	return thingslib.ScriptAllProjects(bundleID)
 }
@@ -48,8 +32,4 @@ func scriptSearch(bundleID, listName, query string) string {
 
 func scriptTasksStructured(bundleID, listName, query string) string {
 	return thingslib.ScriptTasksStructured(bundleID, listName, query)
-}
-
-func scriptRestoreSemanticCheck(bundleID string) string {
-	return thingslib.ScriptRestoreSemanticCheck(bundleID)
 }

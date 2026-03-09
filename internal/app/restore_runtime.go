@@ -10,6 +10,8 @@ import (
 	thingslib "github.com/alnah/things-agent/internal/things"
 )
 
+const thingsAppName = "Things"
+
 type appController interface {
 	IsRunning(ctx context.Context, bundleID string) (bool, error)
 	Quit(ctx context.Context, bundleID string) error
@@ -63,7 +65,7 @@ func (r *restoreExecutor) waitForStopped(ctx context.Context) error {
 			return err
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("Things did not stop within %s", r.stopTimeout)
+			return fmt.Errorf("%s did not stop within %s", thingsAppName, r.stopTimeout)
 		}
 		r.sleep(r.pollInterval)
 	}
@@ -83,7 +85,7 @@ func (r *restoreExecutor) waitForRunning(ctx context.Context) error {
 			return err
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("Things did not launch within %s", r.launchTimeout)
+			return fmt.Errorf("%s did not launch within %s", thingsAppName, r.launchTimeout)
 		}
 		r.sleep(r.pollInterval)
 	}
@@ -184,7 +186,7 @@ func (r *restoreExecutor) waitForStableFiles(ctx context.Context) error {
 			return err
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("Things database files did not stabilize within %s", r.stabilityTimeout)
+			return fmt.Errorf("%s database files did not stabilize within %s", thingsAppName, r.stabilityTimeout)
 		}
 		r.sleep(r.pollInterval)
 	}
@@ -209,7 +211,7 @@ func (r *restoreExecutor) quiesce(ctx context.Context, wasRunning bool) error {
 			return err
 		}
 		if running {
-			return errors.New("Things restarted during quiescence")
+			return fmt.Errorf("%s restarted during quiescence", thingsAppName)
 		}
 	}
 	return r.waitForStableFiles(ctx)

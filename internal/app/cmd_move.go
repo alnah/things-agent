@@ -8,18 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func resolveAreaSelector(name, id string) (string, string, error) {
-	return commandlib.ResolveAreaSelector(name, id)
-}
-
-func resolveMoveTaskDestination(toArea, toAreaID, toProject, toProjectID, toHeading, toHeadingID string) (map[string]string, error) {
-	return commandlib.ResolveMoveTaskDestination(toArea, toAreaID, toProject, toProjectID, toHeading, toHeadingID)
-}
-
-func resolveMoveProjectDestination(toArea, toAreaID string) (map[string]string, error) {
-	return commandlib.ResolveMoveProjectDestination(toArea, toAreaID)
-}
-
 func resolveTaskID(ctx context.Context, cfg *runtimeConfig, name, id string) (string, error) {
 	name, id, err := resolveEntitySelector(name, id)
 	if err != nil {
