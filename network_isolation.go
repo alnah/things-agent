@@ -2,61 +2,38 @@ package main
 
 import (
 	"context"
-	"fmt"
-	"os/exec"
-	"path/filepath"
-	"strings"
+
+	thingslib "github.com/alnah/things-agent/internal/things"
 )
 
 const (
-	networkIsolationNone             = "none"
-	networkIsolationSandboxNoNetwork = "sandbox-no-network"
+	networkIsolationNone             = thingslib.NetworkIsolationNone
+	networkIsolationSandboxNoNetwork = thingslib.NetworkIsolationSandboxNoNetwork
 )
 
 type offlineAppLaunchFunc func(context.Context, string) error
 
 var newOfflineAppLaunch = func(mode string) (offlineAppLaunchFunc, error) {
-	switch strings.TrimSpace(mode) {
-	case "", networkIsolationNone:
-		return nil, nil
-	case networkIsolationSandboxNoNetwork:
-		return launchAppSandboxNoNetwork, nil
-	default:
-		return nil, fmt.Errorf("unsupported network isolation mode %q", mode)
+	launch, err := thingslib.NewOfflineAppLaunch(mode)
+	if err != nil {
+		return nil, err
 	}
+	if launch == nil {
+		return nil, nil
+	}
+	return func(ctx context.Context, bundleID string) error {
+		return launch(ctx, bundleID)
+	}, nil
 }
 
 func launchAppSandboxNoNetwork(ctx context.Context, bundleID string) error {
-	appPath, err := resolveAppBundlePath(ctx, bundleID)
+	launch, err := thingslib.NewOfflineAppLaunch(networkIsolationSandboxNoNetwork)
 	if err != nil {
 		return err
 	}
-	execDir := filepath.Join(appPath, "Contents", "MacOS")
-	entries, err := filepath.Glob(filepath.Join(execDir, "*"))
-	if err != nil || len(entries) == 0 {
-		return fmt.Errorf("launch Things offline: resolve app executable: %w", err)
-	}
-	cmd := exec.CommandContext(ctx, "/usr/bin/sandbox-exec", "-n", "no-network", entries[0])
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("launch Things offline: %w", err)
-	}
-	_ = cmd.Process.Release()
-	return nil
+	return launch(ctx, bundleID)
 }
 
 func resolveAppBundlePath(ctx context.Context, bundleID string) (string, error) {
-	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", fmt.Sprintf(`POSIX path of (path to application id "%s")`, bundleID))
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		msg := strings.TrimSpace(string(output))
-		if msg == "" {
-			return "", fmt.Errorf("resolve Things app path: %w", err)
-		}
-		return "", fmt.Errorf("resolve Things app path: %w: %s", err, msg)
-	}
-	path := strings.TrimSpace(string(output))
-	if path == "" {
-		return "", fmt.Errorf("resolve Things app path: empty result")
-	}
-	return path, nil
+	return thingslib.ResolveAppBundlePath(ctx, bundleID)
 }
