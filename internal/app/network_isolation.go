@@ -13,8 +13,10 @@ const (
 
 type offlineAppLaunchFunc func(context.Context, string) error
 
+var thingsNewOfflineAppLaunch = thingslib.NewOfflineAppLaunch
+
 var newOfflineAppLaunch = func(mode string) (offlineAppLaunchFunc, error) {
-	launch, err := thingslib.NewOfflineAppLaunch(mode)
+	launch, err := thingsNewOfflineAppLaunch(mode)
 	if err != nil {
 		return nil, err
 	}

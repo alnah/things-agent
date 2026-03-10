@@ -29,6 +29,12 @@ func TestRootCommandBuildsAndRunsVersion(t *testing.T) {
 	}
 }
 
+func TestExportedNewRootCmd(t *testing.T) {
+	if root := NewRootCmd(); root == nil {
+		t.Fatal("expected exported NewRootCmd to return a command")
+	}
+}
+
 func TestRootCommandRunsDate(t *testing.T) {
 	root := newRootCmd()
 	var out bytes.Buffer
@@ -59,6 +65,19 @@ func TestRootHelp(t *testing.T) {
 	root.SetArgs([]string{"--help"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("help execute failed: %v", err)
+	}
+}
+
+func TestRootWithoutArgsShowsHelp(t *testing.T) {
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	if err := root.Execute(); err != nil {
+		t.Fatalf("root execute without args failed: %v", err)
+	}
+	if out.Len() == 0 {
+		t.Fatal("expected help output when no args are provided")
 	}
 }
 
