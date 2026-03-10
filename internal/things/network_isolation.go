@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+var execCommandContext = exec.CommandContext
+var filepathGlob = filepath.Glob
+
 const (
 	NetworkIsolationNone             = "none"
 	NetworkIsolationSandboxNoNetwork = "sandbox-no-network"
@@ -32,12 +35,12 @@ func launchAppSandboxNoNetwork(ctx context.Context, bundleID string) error {
 		return err
 	}
 	execDir := filepath.Join(appPath, "Contents", "MacOS")
-	entries, err := filepath.Glob(filepath.Join(execDir, "*"))
+	entries, err := filepathGlob(filepath.Join(execDir, "*"))
 	if err != nil || len(entries) == 0 {
 		return fmt.Errorf("launch Things offline: resolve app executable: %w", err)
 	}
 	// #nosec G204 -- sandbox-exec is invoked directly without a shell; the executable path comes from the resolved app bundle contents.
-	cmd := exec.CommandContext(ctx, "/usr/bin/sandbox-exec", "-n", "no-network", entries[0])
+	cmd := execCommandContext(ctx, "/usr/bin/sandbox-exec", "-n", "no-network", entries[0])
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("launch Things offline: %w", err)
 	}
@@ -52,7 +55,7 @@ func ResolveAppBundlePath(ctx context.Context, bundleID string) (string, error) 
 	}
 	script := fmt.Sprintf(`POSIX path of (path to application id "%s")`, EscapeApple(bundleID))
 	// #nosec G204 -- osascript is invoked directly without a shell; the bundle id is escaped before interpolation.
-	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script)
+	cmd := execCommandContext(ctx, "/usr/bin/osascript", "-e", script)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(string(output))

@@ -51,3 +51,13 @@ func TestScriptCompleteTaskStates(t *testing.T) {
 		t.Fatalf("unexpected open script: %s", open)
 	}
 }
+
+func TestScriptCompleteTaskUsesPlaceholderAuthToken(t *testing.T) {
+	script := ScriptCompleteTask("bundle.id", "task", "", true)
+	if !strings.Contains(script, "AUTH_TOKEN_PLACEHOLDER") {
+		t.Fatalf("expected placeholder auth token in completion script: %s", script)
+	}
+	if !strings.Contains(script, `whose name is "task"`) {
+		t.Fatalf("expected task resolver in completion script: %s", script)
+	}
+}

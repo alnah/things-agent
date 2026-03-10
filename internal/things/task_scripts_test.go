@@ -87,3 +87,28 @@ func TestScriptEditTaskWithAllOptionalFields(t *testing.T) {
 		}
 	}
 }
+
+func TestScriptAppendChecklistByNameUsesNameResolver(t *testing.T) {
+	s := ScriptAppendChecklistByName(testBundleID, "Task A", []string{"one", "two"}, "token")
+	if !strings.Contains(s, `whose name is "Task A"`) {
+		t.Fatalf("expected name-based resolver in append checklist script: %s", s)
+	}
+	if !strings.Contains(s, "append-checklist-items=one%0Atwo") {
+		t.Fatalf("expected append checklist payload in script: %s", s)
+	}
+}
+
+func TestScriptEditProjectAndClearDeadlineByName(t *testing.T) {
+	project := ScriptEditProject(testBundleID, "Project A", "Project B", "new notes")
+	if !strings.Contains(project, `set p to first project whose name is "Project A"`) {
+		t.Fatalf("expected source project selector, got %s", project)
+	}
+	if !strings.Contains(project, `set name of p to "Project B"`) || !strings.Contains(project, `set notes of p to "new notes"`) {
+		t.Fatalf("expected project update statements, got %s", project)
+	}
+
+	clearDeadline := ScriptClearTaskDeadlineByName(testBundleID, "Task A", "token")
+	if !strings.Contains(clearDeadline, "things:///update?auth-token=token") || !strings.Contains(clearDeadline, "&deadline=") {
+		t.Fatalf("expected deadline-clearing URL update, got %s", clearDeadline)
+	}
+}

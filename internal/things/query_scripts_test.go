@@ -103,3 +103,13 @@ func TestScriptResolveProjectByID(t *testing.T) {
 		t.Fatalf("expected project id lookup, got: %s", got)
 	}
 }
+
+func TestScriptRestoreSemanticCheck(t *testing.T) {
+	got := ScriptRestoreSemanticCheck("bundle.id")
+	if !strings.Contains(got, "restore semantic verify") {
+		t.Fatalf("expected restore semantic verify marker, got: %s", got)
+	}
+	if !strings.Contains(got, "(count of lists)") || !strings.Contains(got, "(count of projects)") {
+		t.Fatalf("expected semantic count probes, got: %s", got)
+	}
+}
