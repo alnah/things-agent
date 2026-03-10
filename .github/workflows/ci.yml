@@ -27,7 +27,7 @@ jobs:
           git diff --exit-code go.mod go.sum
 
       - name: unit tests with coverage
-        run: go test ./... -coverprofile=coverage.out -covermode=atomic
+        run: go test -count=1 ./... -coverpkg=./... -coverprofile=coverage.out -covermode=atomic
 
       - name: integration tests (mocked runner)
         run: go test -tags=integration ./... -run Integration -count=1
